@@ -1,0 +1,8 @@
+<RCC><qresource prefix="/icons">
+  <file alias="view-code.svg">icons/view-code.svg</file>
+  <file alias="view-code-light.svg">icons/view-code-light.svg</file>
+  <file alias="view-preview.svg">icons/view-preview.svg</file>
+  <file alias="view-preview-light.svg">icons/view-preview-light.svg</file>
+  <file alias="view-both.svg">icons/view-both.svg</file>
+  <file alias="view-both-light.svg">icons/view-both-light.svg</file>
+</qresource></RCC>

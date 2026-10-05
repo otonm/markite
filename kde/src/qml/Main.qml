@@ -26,6 +26,19 @@ Kirigami.ApplicationWindow {
         location: StandardPaths.writableLocation(StandardPaths.ConfigLocation) + "/markiterc"
         category: "View"
         property bool syncScroll: true
+        property bool wrapText: false
+        property int viewMode: 2   // 0 code only, 1 preview only, 2 both; restored on next launch
+        onViewModeChanged: Qt.callLater(sync.fromEditor)
+    }
+
+    // Two-way aliases: Settings restores these on launch and saves them on change.
+    Settings {
+        location: settings.location
+        category: "Window"
+        property alias x: root.x
+        property alias y: root.y
+        property alias width: root.width
+        property alias height: root.height
     }
 
     FileDialog {
@@ -40,19 +53,70 @@ Kirigami.ApplicationWindow {
         onAccepted: doc.saveAs(selectedFile.toString().replace("file://", ""))
     }
 
-    globalDrawer: Kirigami.GlobalDrawer {
-        actions: [
-            Kirigami.Action { text: "Open…"; icon.name: "document-open"; shortcut: StandardKey.Open; onTriggered: openDialog.open() },
-            Kirigami.Action { text: "Save"; icon.name: "document-save"; shortcut: StandardKey.Save
-                onTriggered: doc.path ? doc.save() : saveDialog.open() },
-            Kirigami.Action { text: "Save As…"; icon.name: "document-save-as"; shortcut: StandardKey.SaveAs; onTriggered: saveDialog.open() }
-        ]
-    }
-
     pageStack.initialPage: Kirigami.Page {
-        title: "Markdown"
+        id: mainPage
+        // Top-left: live statistics. Top-right: one vertical three-dots menu holding every action.
+        title: doc.wordCount + (doc.wordCount === 1 ? " word" : " words")
         padding: 0
-        actions: [
+
+        // Plain SVGs aren't recoloured by icon.color: use the white glyph on dark themes, black on light.
+        readonly property string iconSuffix: Kirigami.Theme.textColor.hsvValue > 0.5 ? "-light" : ""
+
+        // Toolbar: shape-only buttons (custom display component, no label).
+        Kirigami.Action {
+            id: toolbarCode
+            displayComponent: ViewButton { active: settings.viewMode === 0; tip: "Code only (Ctrl+1)"
+                                           showCode: true; onClicked: settings.viewMode = 0 }
+        }
+        Kirigami.Action {
+            id: toolbarPreview
+            displayComponent: ViewButton { active: settings.viewMode === 1; tip: "Preview only (Ctrl+2)"
+                                           showPreview: true; onClicked: settings.viewMode = 1 }
+        }
+        Kirigami.Action {
+            id: toolbarBoth
+            displayComponent: ViewButton { active: settings.viewMode === 2; tip: "Code and preview (Ctrl+3)"
+                                           showCode: true; showPreview: true; onClicked: settings.viewMode = 2 }
+        }
+
+        // View submenu: labelled entries with the same shapes. They own the shortcuts; the
+        // Bindings re-assert `checked` from settings (a click would otherwise break the binding).
+        Kirigami.Action {
+            id: menuCode
+            text: "Code Only"; shortcut: "Ctrl+1"; checkable: true
+            icon.source: "qrc:/icons/view-code" + mainPage.iconSuffix + ".svg"; icon.color: Kirigami.Theme.textColor
+            onTriggered: settings.viewMode = 0
+        }
+        Kirigami.Action {
+            id: menuPreview
+            text: "Preview Only"; shortcut: "Ctrl+2"; checkable: true
+            icon.source: "qrc:/icons/view-preview" + mainPage.iconSuffix + ".svg"; icon.color: Kirigami.Theme.textColor
+            onTriggered: settings.viewMode = 1
+        }
+        Kirigami.Action {
+            id: menuBoth
+            text: "Code and Preview"; shortcut: "Ctrl+3"; checkable: true
+            icon.source: "qrc:/icons/view-both" + mainPage.iconSuffix + ".svg"; icon.color: Kirigami.Theme.textColor
+            onTriggered: settings.viewMode = 2
+        }
+        Binding { target: menuCode; property: "checked"; value: settings.viewMode === 0 }
+        Binding { target: menuPreview; property: "checked"; value: settings.viewMode === 1 }
+        Binding { target: menuBoth; property: "checked"; value: settings.viewMode === 2 }
+
+        Kirigami.Action {
+            id: menuAction
+            text: "Menu"
+            icon.name: "overflow-menu"
+            Kirigami.Action { text: "Open…"; icon.name: "document-open"; shortcut: StandardKey.Open; onTriggered: openDialog.open() }
+            Kirigami.Action { text: "Save"; icon.name: "document-save"; shortcut: StandardKey.Save
+                onTriggered: doc.path ? doc.save() : saveDialog.open() }
+            Kirigami.Action { text: "Save As…"; icon.name: "document-save-as"; shortcut: StandardKey.SaveAs; onTriggered: saveDialog.open() }
+            Kirigami.Action { separator: true }
+            Kirigami.Action {
+                text: "View"
+                icon.name: "view-split-left-right"
+                children: [menuCode, menuPreview, menuBoth]
+            }
             Kirigami.Action {
                 text: "Sync Scrolling"
                 tooltip: "Keep editor and preview at the same position"
@@ -62,7 +126,17 @@ Kirigami.ApplicationWindow {
                 shortcut: "Ctrl+Shift+L"
                 onToggled: { settings.syncScroll = checked; if (checked) sync.fromEditor() }
             }
-        ]
+            Kirigami.Action {
+                text: "Wrap Text"
+                tooltip: "Wrap long lines instead of scrolling horizontally"
+                icon.name: "text-wrap"
+                checkable: true
+                checked: settings.wrapText
+                onToggled: settings.wrapText = checked
+            }
+        }
+
+        actions: [toolbarCode, toolbarPreview, toolbarBoth, menuAction]
 
         // Editor <-> preview position sync. Core maps source lines to preview blocks
         // (doc.lineToBlock / doc.blockToLine); this only measures where blocks landed.
@@ -109,7 +183,11 @@ Kirigami.ApplicationWindow {
         }
         Connections { target: sync.ed; function onContentYChanged() { sync.fromEditor() } }
         // Only user scrolling of the preview drives the editor; re-layout while typing must not.
-        Connections { target: sync.pv; function onContentYChanged() { if (previewHover.hovered || sync.pv.moving) sync.fromPreview() } }
+        // Dragging the scrollbar grabs the pointer (no hover, not "moving"), so check pressed too.
+        Connections { target: sync.pv; function onContentYChanged() {
+            const bar = previewScroll.Controls.ScrollBar.vertical;
+            if (previewHover.hovered || sync.pv.moving || (bar && bar.pressed)) sync.fromPreview();
+        } }
         Connections { target: sync.pv; function onContentHeightChanged() { if (!previewHover.hovered) Qt.callLater(sync.fromEditor) } }
 
         // Don't let NoWrap editor content push the page/window minimum size around.
@@ -121,11 +199,41 @@ Kirigami.ApplicationWindow {
 
             // ---- editor: gutter | text | minimap ----
             RowLayout {
+                visible: settings.viewMode !== 1
+                Controls.SplitView.fillWidth: settings.viewMode === 0
                 Controls.SplitView.minimumWidth: Kirigami.Units.gridUnit * 10
                 // 50/50 until the user drags: SplitView assigns preferredWidth on drag, replacing this binding.
                 Controls.SplitView.preferredWidth: split.width / 2
                 spacing: 0
                 implicitWidth: 0
+
+                // Fixed gutter: stays put during horizontal scroll, follows vertical scroll.
+                // Each number is placed at its line's measured y (positionToRectangle), so it
+                // stays aligned under wrapping too.
+                Item {
+                    id: gutter
+                    Layout.fillHeight: true
+                    Layout.preferredWidth: editor.lineStarts.length.toString().length * fm.averageCharacterWidth + Kirigami.Units.largeSpacing
+                    // Stop the numbers above the editor's horizontal scrollbar instead of behind it.
+                    Layout.bottomMargin: scroll.Controls.ScrollBar.horizontal.visible ? scroll.Controls.ScrollBar.horizontal.height : 0
+                    clip: true
+                    Repeater {
+                        model: editor.lineStarts.length
+                        Controls.Label {
+                            text: index + 1
+                            font: editor.font
+                            color: Kirigami.Theme.disabledTextColor
+                            horizontalAlignment: Text.AlignRight
+                            width: gutter.width
+                            rightPadding: Kirigami.Units.smallSpacing
+                            height: editor.lineH
+                            // positionToRectangle() isn't reactive: the leading terms make the binding re-run
+                            // whenever wrapping re-lays out the text (wrap toggled, width settled, text loaded).
+                            y: (settings.wrapText, editor.width, editor.contentHeight,
+                                editor.positionToRectangle(editor.lineStarts[index] || 0).y - scroll.contentItem.contentY)
+                        }
+                    }
+                }
 
                 Controls.ScrollView {
                     id: scroll
@@ -137,36 +245,28 @@ Kirigami.ApplicationWindow {
                     RowLayout {
                         spacing: 0
                         // Fill the visible area; grow (and scroll horizontally) for long lines.
-                        width: Math.max(scroll.availableWidth, implicitWidth)
+                        // When wrapping, pin to the viewport so the editor is constrained and actually wraps.
+                        width: settings.wrapText ? scroll.availableWidth : Math.max(scroll.availableWidth, implicitWidth)
                         height: Math.max(scroll.availableHeight, implicitHeight)  // click anywhere below the text to focus it
-                        // Line numbers: one Text per line, aligned by monospace line height.
-                        Column {
-                            Layout.alignment: Qt.AlignTop
-                            topPadding: editor.firstLineY
-                            Repeater {
-                                model: editor.lineCount
-                                Controls.Label {
-                                    text: index + 1
-                                    font: editor.font
-                                    color: Kirigami.Theme.disabledTextColor
-                                    horizontalAlignment: Text.AlignRight
-                                    width: editor.lineCount.toString().length * fm.averageCharacterWidth + Kirigami.Units.largeSpacing
-                                    rightPadding: Kirigami.Units.smallSpacing
-                                    height: editor.lineH
-                                }
-                            }
-                        }
                         Controls.TextArea {
                             id: editor
                             Layout.fillWidth: true
                             Layout.fillHeight: true
                             font: Kirigami.Theme.fixedWidthFont
-                            wrapMode: TextEdit.NoWrap
+                            wrapMode: settings.wrapText ? TextEdit.Wrap : TextEdit.NoWrap
                             background: null
                             // Measured line pitch and first-line offset (padding, document margin) for gutter, minimap and sync.
+                            // ponytail: lineH is one average pitch; minimap/sync drift under wrap (default off). Measure per-line if it matters.
                             readonly property real firstLineY: length >= 0 ? positionToRectangle(0).y : 0
                             readonly property real lineH: lineCount > 1
                                 ? (positionToRectangle(length).y - firstLineY) / (lineCount - 1) : fm.lineSpacing
+                            // Char offset of each line start, so the fixed gutter can place numbers per line.
+                            // Must be a binding on text: opening a file sets text programmatically without onTextChanged.
+                            readonly property var lineStarts: {
+                                const o = [0];
+                                for (let i = 0; i < text.length; i++) if (text.charCodeAt(i) === 10) o.push(i + 1);
+                                return o;
+                            }
                             onTextChanged: doc.updateText(text)
                             SyntaxHighlighter { textEdit: editor; definition: "Markdown"; theme: Repository.theme("Breeze Dark") }
                             FontMetrics { id: fm; font: editor.font }
@@ -209,6 +309,7 @@ Kirigami.ApplicationWindow {
             // ponytail: Repeater rebuilds every block per keystroke; diff by index if long docs lag.
             Controls.ScrollView {
                 id: previewScroll
+                visible: settings.viewMode !== 0
                 Controls.SplitView.fillWidth: true
                 Controls.SplitView.minimumWidth: Kirigami.Units.gridUnit * 10
                 HoverHandler { id: previewHover }

@@ -55,6 +55,13 @@ impl Document {
         Ok(())
     }
 
+    /// Whitespace-separated token count, shown as the live word count.
+    /// ponytail: counts Markdown syntax tokens (e.g. `#`, `-`) as words; refine if a
+    /// real prose count is wanted.
+    pub fn word_count(&self) -> usize {
+        self.text.split_whitespace().count()
+    }
+
     pub fn render_html(&self) -> String {
         crate::render::to_html(&self.text)
     }
@@ -85,6 +92,7 @@ mod tests {
 
         let reopened = Document::open(&file).unwrap();
         assert_eq!(reopened.text(), "# hi");
+        assert_eq!(reopened.word_count(), 2);
         assert_eq!(reopened.path(), Some(file.as_path()));
 
         fs::remove_dir_all(dir).unwrap();

@@ -1,4 +1,4 @@
-# Architecture: UI-free core + KDE frontend
+# Architecture
 
 ```
 core/   markite-core   pure Rust, no toolkit deps, `cargo test` without Qt
@@ -47,14 +47,6 @@ cargo run -p markite-kde        # needs Qt6, KF6 Kirigami, KSyntaxHighlighting, 
 cmake -B build --install-prefix ~/.local && cmake --build build && cmake --install build
 ```
 Without a host toolchain: `./docker/build.sh` runs core tests as a static musl binary
-(`rust:alpine`), builds the KDE crate in an Arch image with Qt 6.11 + KF6
-(`docker/Dockerfile.kde`), and smoke-runs the QML headlessly (offscreen QPA).
+(`rust:alpine`), builds the KDE crate (`docker/Dockerfile.kde`), and smoke-runs the QML headlessly (offscreen QPA).
 
-`./docker/appimage.sh` makes `debug-build/markite-x86_64.AppImage` (release build, bundles
-Qt 6.11, KF6 QML modules, qqc2-desktop-style and plasma-integration so it follows Plasma
-colours/icons/dialogs). Needs glibc >= the build image's (Fedora 44). Libraries are copied
-unmodified; linuxdeploy is not used because its patchelf corrupts Fedora 44's RELR relocations.
-
-Static linking: only the core is static. The KDE binary links Qt/KF6 dynamically;
-a fully static Qt app needs a custom static build of Qt and every KF6 framework, which
-no distro ships. Use Flatpak (org.kde.Platform runtime) or AppImage for distribution instead.
+`./docker/appimage.sh` makes `debug-build/markite-x86_64.AppImage` (release build, bundles Qt 6.11, KF6 QML modules, qqc2-desktop-style and plasma-integration so it follows Plasma colours/icons/dialogs). Needs glibc >= the build image's (Fedora 44). Libraries are copied unmodified; linuxdeploy is not used because its patchelf corrupts Fedora 44's RELR relocations.
