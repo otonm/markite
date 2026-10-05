@@ -1,0 +1,13 @@
+# Build/test image for the KDE frontend. Nothing is installed on the host.
+# Fedora because cxx-qt-lib links Qt's PRIVATE API: the binary only runs against the exact
+# Qt minor it was built with. Bazzite tracks Fedora, so match its release here.
+ARG FEDORA=44
+FROM fedora:${FEDORA}
+RUN dnf install -y --setopt=install_weak_deps=False \
+        rust cargo gcc gcc-c++ cmake pkgconf extra-cmake-modules \
+        qt6-qtbase-devel qt6-qtdeclarative-devel qt6-qtsvg \
+        kf6-kirigami kf6-syntax-highlighting kf6-qqc2-desktop-style \
+        plasma-integration qt6-qtwayland \
+        curl file desktop-file-utils binutils \
+    && dnf clean all
+ENV CARGO_HOME=/src/.docker-cache/cargo-fedora CARGO_TARGET_DIR=/src/.docker-cache/target-fedora

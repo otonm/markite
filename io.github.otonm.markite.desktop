@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Markite
+GenericName=Markdown Editor
+Exec=markite %f
+Icon=io.github.otonm.markite
+Type=Application
+Terminal=false
+Categories=Utility;TextEditor;
+MimeType=text/markdown;
