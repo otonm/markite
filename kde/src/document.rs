@@ -5,6 +5,7 @@ use std::pin::Pin;
 
 use cxx_qt::CxxQtType;
 use cxx_qt_lib::{QList, QString, QStringList};
+use crate::kio;
 use markite_core::blocks::{self, Block};
 
 #[cxx_qt::bridge]
@@ -113,19 +114,39 @@ impl ffi::Document {
     }
 
     pub fn open(mut self: Pin<&mut Self>, path: &QString) {
-        let r = markite_core::Document::open(path.to_string()).map(|d| {
-            self.as_mut().rust_mut().inner = d;
-        });
+        let p = kio::resolve(&path.to_string()); // kio-fuse paths become their sftp:// URL
+        // Remote URLs (sftp://, ...) go through KIO; local paths use core's std I/O.
+        let r = if kio::is_remote(&p) {
+            kio::read(&p).map(|text| self.as_mut().rust_mut().inner.load(&p, text))
+        } else {
+            markite_core::Document::open(&p).map(|d| self.as_mut().rust_mut().inner = d)
+        };
         self.report(r);
     }
 
     pub fn save(mut self: Pin<&mut Self>) {
-        let r = self.as_mut().rust_mut().inner.save();
+        let remote = self
+            .rust()
+            .inner
+            .path()
+            .map(|p| kio::is_remote(&p.to_string_lossy()))
+            .unwrap_or(false);
+        let r = if remote {
+            self.as_mut().rust_mut().inner.save_with(|p, t| kio::write(&p.to_string_lossy(), t))
+        } else {
+            self.as_mut().rust_mut().inner.save()
+        };
         self.report(r);
     }
 
     pub fn save_as(mut self: Pin<&mut Self>, path: &QString) {
-        let r = self.as_mut().rust_mut().inner.save_as(path.to_string());
+        let p = kio::resolve(&path.to_string());
+        let r = if kio::is_remote(&p) {
+            let text = self.rust().inner.text().to_string();
+            kio::write(&p, &text).map(|()| self.as_mut().rust_mut().inner.load(&p, text))
+        } else {
+            self.as_mut().rust_mut().inner.save_as(&p)
+        };
         self.report(r);
     }
 

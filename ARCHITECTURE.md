@@ -18,7 +18,8 @@ property, iced message, ...).
 | `Document` state, dirty tracking   | `Document` QObject: `text/blocksHtml/path/dirty/wordCount/charCount` |
 | `blocks::to_blocks`, line<->block  | preview: one `TextArea` per block, scroll sync  |
 | `minimap::lines` classification    | `Canvas` painting `doc.minimapRows()`           |
-| file I/O (`open/save/save_as`)     | `FileDialog`, menu actions, shortcuts           |
+| file I/O (`open/save/save_as`, `load`, `save_with`) | `FileDialog`, menu actions, shortcuts  |
+| (remote I/O is not in core)       | `kde/src/kio.rs` + `kio_shim.cpp`: sftp:// and other URLs go through KIO |
 | `word_count`, `char_count`         | statistics label (top right)                    |
 | (later) settings, search, outline  | (later) QML settings page, Kirigami sheets      |
 
@@ -34,6 +35,12 @@ theme files (MIT, copyright notices in that file); token colours still come from
 
 QML layout: `Main.qml` (window, actions, menu, panes), `ViewButton.qml` (toolbar button drawn from
 shapes), `EditorThemes.qml` (generated colours), `icons/` + `icons.qrc` (view-mode glyphs, white and black variants picked by theme).
+Remote files: Dolphin hands non-KIO apps a kio-fuse path, and kio-fuse writes are unreliable
+(kio-fuse issue #10: EIO/EPERM on save). The desktop entry declares `x-scheme-handler/sftp`, so Dolphin
+passes Markite a real `sftp://…` URL; `kio_shim.cpp` (nested event loop over `KIO::storedGet/storedPut`)
+serves it, called from `kde/src/kio.rs`. Local files keep core's plain `std::fs` I/O, and
+`Document::load`/`save_with` keep dirty tracking in core for both.
+
 The app icon is `io.github.otonm.markite.svg` (installed by CMake, copied into the AppImage, and bundled
 via `icons.qrc`). `kde/src/window_icon.cpp` (one `extern "C"` call from `main.rs`) sets it as the window icon,
 because cxx-qt-lib has no `QIcon` and Qt does not derive it from the desktop file name.

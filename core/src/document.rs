@@ -12,8 +12,11 @@ pub struct Document {
 }
 
 impl Document {
+    /// Errors carry the path so the toast says which file and operation failed,
+    /// not just "os error 5".
     pub fn open(path: impl AsRef<Path>) -> io::Result<Self> {
-        let text = fs::read_to_string(&path)?;
+        let text = fs::read_to_string(&path)
+            .map_err(|e| io::Error::new(e.kind(), format!("{}: {e}", path.as_ref().display())))?;
         Ok(Self {
             saved_text: text.clone(),
             text,
@@ -40,6 +43,25 @@ impl Document {
         self.text = text.into();
     }
 
+    /// Load content the frontend already fetched (e.g. a remote file via KIO). The path is
+    /// kept as an opaque token for display and later saves; this crate never touches it itself.
+    pub fn load(&mut self, path: impl AsRef<Path>, text: impl Into<String>) {
+        self.path = Some(path.as_ref().to_path_buf());
+        self.text = text.into();
+        self.saved_text = self.text.clone();
+    }
+
+    /// Save through a caller-supplied writer (frontend remote I/O); dirty tracking stays here.
+    pub fn save_with(&mut self, write: impl FnOnce(&Path, &str) -> io::Result<()>) -> io::Result<()> {
+        let path = self
+            .path
+            .clone()
+            .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "document has no path"))?;
+        write(&path, &self.text)?;
+        self.saved_text = self.text.clone();
+        Ok(())
+    }
+
     pub fn save(&mut self) -> io::Result<()> {
         let path = self
             .path
@@ -49,7 +71,8 @@ impl Document {
     }
 
     pub fn save_as(&mut self, path: impl AsRef<Path>) -> io::Result<()> {
-        fs::write(&path, &self.text)?;
+        fs::write(&path, &self.text)
+            .map_err(|e| io::Error::new(e.kind(), format!("{}: {e}", path.as_ref().display())))?;
         self.path = Some(path.as_ref().to_path_buf());
         self.saved_text = self.text.clone();
         Ok(())
@@ -98,5 +121,24 @@ mod tests {
         assert_eq!(reopened.path(), Some(file.as_path()));
 
         fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn load_and_save_with_roundtrip() {
+        let mut doc = Document::default();
+        doc.load("sftp://h/p.md", "remote");
+        assert!(!doc.is_dirty());
+        doc.set_text("edited");
+        assert!(doc.is_dirty());
+
+        let (mut path, mut written) = (String::new(), String::new());
+        doc.save_with(|p, t| {
+            path = p.display().to_string();
+            written = t.to_string();
+            Ok(())
+        })
+        .unwrap();
+        assert_eq!((path.as_str(), written.as_str()), ("sftp://h/p.md", "edited"));
+        assert!(!doc.is_dirty());
     }
 }

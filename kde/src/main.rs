@@ -3,6 +3,7 @@ use cxx_qt_lib_extras::QApplication;
 use std::env;
 
 mod document;
+mod kio;
 
 extern "C" {
     fn markite_set_window_icon(); // window_icon.cpp

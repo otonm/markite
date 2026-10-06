@@ -20,6 +20,9 @@ sudo docker run --rm -v "$PWD":/src -w /src -e APPIMAGE_EXTRACT_AND_RUN=1 markit
   cp -a $Q/qml "$A/usr/qml"
   mkdir -p "$A/usr/plugins"
   for d in $Q/plugins/*; do case ${d##*/} in designer|qmllint|qmlls|qmltooling|sqldrivers) ;; *) cp -a "$d" "$A/usr/plugins/";; esac; done
+  # Keep only the KIO workers we actually use (kio-extras installs many, each dragging deps).
+  find "$A/usr/plugins/kf6/kio" -name "*.so" -type f \
+    ! -name "kio_file.so" ! -name "kio_trash.so" ! -name "kio_http.so" ! -name "kio_ftp.so" ! -name "sftp.so" -delete
 
   # Bundle every shared-lib dependency except the ones that must come from the host
   # (glibc, libstdc++/libgcc, GL/EGL/Vulkan drivers, X11/xcb, wayland, fonts): AppImage excludelist policy.

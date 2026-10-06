@@ -50,7 +50,13 @@ is attached to each release.
 **Opening `.md` files with Markite:** the desktop entry declares the `text/markdown` type, but an AppImage
 cannot register itself. Use a desktop-integration tool such as
 [AppImageLauncher](https://github.com/TheAssassin/AppImageLauncher) or appimaged, and "Open with Markite"
-will show up for Markdown files.
+will show up for Markdown files. **Re-integrate after upgrading**, so the newest desktop entry (which also
+declares the `sftp://` scheme) gets registered.
+
+**Remote files (sftp):** opening and saving over `sftp://` works through KDE's KIO (the sftp worker is
+bundled). Paths handed over via kio-fuse (`/run/user/…/kio-fuse…/sftp/…`) are translated back to their
+`sftp://` URL automatically. Saving needs the session's KDE services (wallet/credential cache), so run it
+inside your normal Plasma session.
 
 ### Build from source
 

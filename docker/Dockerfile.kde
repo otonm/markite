@@ -10,4 +10,7 @@ RUN dnf install -y --setopt=install_weak_deps=False \
         plasma-integration qt6-qtwayland \
         curl file desktop-file-utils binutils \
     && dnf clean all
+# Kept as its own layer so the (big) toolchain layer above stays cacheable.
+RUN dnf install -y --setopt=install_weak_deps=False kf6-kio-devel kf6-kcoreaddons-devel kio-extras \
+        && dnf clean all # kio-extras: the sftp worker Markite bundles (kf6/kio/sftp.so)
 ENV CARGO_HOME=/src/.docker-cache/cargo-fedora CARGO_TARGET_DIR=/src/.docker-cache/target-fedora

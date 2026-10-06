@@ -19,6 +19,7 @@ echo "== kde: build image (cached after first run)"
 $D build -q -t markite-build -f docker/Dockerfile.kde docker
 
 echo "== kde: build"
+$D run --rm -v "$PWD":/src -w /src markite-build cargo test -q -p markite-kde --bin markite
 $D run --rm -v "$PWD":/src -w /src markite-build cargo build -p markite-kde
 cp .docker-cache/target-fedora/debug/markite "$OUT/markite"
 

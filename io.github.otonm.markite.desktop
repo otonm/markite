@@ -6,6 +6,6 @@ Icon=io.github.otonm.markite
 Type=Application
 Terminal=false
 Categories=Utility;TextEditor;
-MimeType=text/markdown;text/x-markdown;
+MimeType=text/markdown;text/x-markdown;x-scheme-handler/sftp;
 StartupWMClass=markite
 Keywords=markdown;md;editor;preview;
