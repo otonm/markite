@@ -67,10 +67,6 @@ impl Document {
         self.text.chars().filter(|c| !c.is_whitespace()).count()
     }
 
-    pub fn render_html(&self) -> String {
-        crate::render::to_html(&self.text)
-    }
-
     pub fn render_blocks(&self) -> Vec<crate::blocks::Block> {
         crate::blocks::to_blocks(&self.text)
     }

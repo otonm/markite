@@ -1,10 +1,6 @@
-use comrak::{markdown_to_html, Options};
+use comrak::Options;
 
-/// Markdown -> HTML fragment (no <html>/<body>; the frontend wraps and styles it).
-pub fn to_html(markdown: &str) -> String {
-    markdown_to_html(markdown, &options())
-}
-
+/// Markdown options shared by every renderer, so block splitting and any future export agree.
 pub(crate) fn options() -> Options<'static> {
     let mut opts = Options::default();
     opts.extension.table = true;
@@ -18,11 +14,12 @@ pub(crate) fn options() -> Options<'static> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::blocks::to_blocks;
 
     #[test]
     fn gfm_table_and_sourcepos() {
-        let html = to_html("# T\n\n| a | b |\n|---|---|\n| 1 | 2 |\n");
+        let blocks = to_blocks("# T\n\n| a | b |\n|---|---|\n| 1 | 2 |\n");
+        let html: String = blocks.iter().map(|b| b.html.as_str()).collect();
         assert!(html.contains("<h1"));
         assert!(html.contains("<table"));
         assert!(html.contains("data-sourcepos"));

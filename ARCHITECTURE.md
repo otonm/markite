@@ -15,11 +15,25 @@ property, iced message, ...).
 
 | Core (toolkit-neutral)             | KDE frontend (Qt-specific)                      |
 |------------------------------------|-------------------------------------------------|
-| `Document` state, dirty tracking   | `Document` QObject with `text/html/path/dirty`  |
-| `render::to_html`                  | preview `TextArea` bound to `doc.html`          |
+| `Document` state, dirty tracking   | `Document` QObject: `text/blocksHtml/path/dirty/wordCount/charCount` |
+| `blocks::to_blocks`, line<->block  | preview: one `TextArea` per block, scroll sync  |
 | `minimap::lines` classification    | `Canvas` painting `doc.minimapRows()`           |
-| file I/O (`open/save/save_as`)     | `FileDialog`, `Kirigami.Action`, shortcuts      |
+| file I/O (`open/save/save_as`)     | `FileDialog`, menu actions, shortcuts           |
+| `word_count`, `char_count`         | statistics label (top right)                    |
 | (later) settings, search, outline  | (later) QML settings page, Kirigami sheets      |
+
+UI-only state (view mode, wrap, minimap, sync, window geometry) lives in QML `Settings`
+(`~/.config/markiterc`); it is presentation, not document state, so it stays out of core.
+
+QML layout: `Main.qml` (window, actions, menu, panes), `ViewButton.qml` (toolbar button drawn from
+shapes), `icons/` + `icons.qrc` (view-mode glyphs, white and black variants picked by theme).
+The app icon is `io.github.otonm.markite.svg` (installed by CMake, copied into the AppImage, and bundled
+via `icons.qrc`). `kde/src/window_icon.cpp` (one `extern "C"` call from `main.rs`) sets it as the window icon,
+because cxx-qt-lib has no `QIcon` and Qt does not derive it from the desktop file name.
+`markite [file.md]` opens a file from the first non-option argument (plain path or `file://` URL); the
+`.desktop` file declares `text/markdown` with `%f`, so desktop-integration tools (AppImageLauncher,
+appimaged) can associate Markdown files with the AppImage.
+`test/complex.md` is a long stress document for manual UI checks.
 
 Rules of thumb when adding a feature:
 1. Write it in `core` as a method returning data. Add its test there.

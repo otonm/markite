@@ -11,7 +11,19 @@ Kirigami.ApplicationWindow {
     id: root
     property bool ready: false          // false while settings load: no transition animation at startup
     property real bothWidth: -1         // editor width in "both" mode (remembered across mode switches)
-    Component.onCompleted: Qt.callLater(() => ready = true)
+    Component.onCompleted: {
+        Qt.callLater(() => ready = true);
+        // `markite file.md` / file-manager "open with": first non-option argument.
+        const file = Qt.application.arguments.slice(1).find(a => !a.startsWith("-"));
+        if (file) openFile(file);
+    }
+
+    // Accepts a plain path or a (percent-encoded) file:// URL.
+    function openFile(location) {
+        const path = String(location).startsWith("file://") ? decodeURIComponent(String(location).slice(7)) : String(location);
+        doc.open(path);
+        editor.text = doc.text;
+    }
     title: (doc.dirty ? "* " : "") + (doc.path || "Untitled") + " — Markite"
     minimumWidth: Kirigami.Units.gridUnit * 30
     minimumHeight: Kirigami.Units.gridUnit * 20
@@ -48,13 +60,13 @@ Kirigami.ApplicationWindow {
     FileDialog {
         id: openDialog
         nameFilters: ["Markdown (*.md *.markdown)", "All files (*)"]
-        onAccepted: { doc.open(selectedFile.toString().replace("file://", "")); editor.text = doc.text }
+        onAccepted: openFile(selectedFile)
     }
     FileDialog {
         id: saveDialog
         fileMode: FileDialog.SaveFile
         nameFilters: openDialog.nameFilters
-        onAccepted: doc.saveAs(selectedFile.toString().replace("file://", ""))
+        onAccepted: doc.saveAs(decodeURIComponent(selectedFile.toString().replace("file://", "")))
     }
 
     pageStack.initialPage: Kirigami.Page {

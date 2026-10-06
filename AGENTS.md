@@ -30,6 +30,10 @@
 - SplitView: bind `SplitView.preferredWidth` (SplitView overwrites it on drag). Setting it in `Component.onCompleted` gives 0 width.
 - Content inside a ScrollView needs explicit `width/height: Math.max(scroll.available*, implicit*)` or it collapses.
 - Editor line metrics: use the measured `editor.lineH` / `editor.firstLineY` (via `positionToRectangle`) for gutter, minimap and sync.
+- Names declared on a nested object (e.g. a property on the `Kirigami.Page`) are NOT resolvable from its children unless the object has an `id`: reference it as `mainPage.prop`.
+- `TextEdit.lineCount` counts *visual* lines when wrapping; use source-line data (`editor.lineStarts`) for the gutter. `positionToRectangle()` is not reactive: bind on `contentHeight`/`width` too.
+- `icon.color` does not recolour plain SVGs: ship a white and a black variant and pick by `Kirigami.Theme.textColor.hsvValue`.
+- Kirigami's page toolbar is right-aligned; the left-hand toolbar lives in `titleDelegate`, and the menu is a plain `Controls.Menu` over shared `Controls.Action`s (they own the shortcuts).
 - The preview is one TextArea per top-level block (`doc.blocksHtml`). Scroll sync maps line ↔ block via core
   (`doc.lineToBlock`, `doc.blockToLine`). Only user scrolling of the preview (hover/moving) drives the editor.
 

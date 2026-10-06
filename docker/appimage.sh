@@ -40,6 +40,7 @@ EOF
   chmod +x "$A/AppRun"
   cp io.github.otonm.markite.desktop io.github.otonm.markite.svg "$A/"
   ln -s io.github.otonm.markite.svg "$A/.DirIcon"
+  mkdir -p "$A/usr/share/icons/hicolor/scalable/apps"; cp io.github.otonm.markite.svg "$A/usr/share/icons/hicolor/scalable/apps/"
   mkdir -p "$A/usr/share/metainfo"; cp io.github.otonm.markite.metainfo.xml "$A/usr/share/metainfo/"
 
   T=$C/appimagetool-x86_64.AppImage

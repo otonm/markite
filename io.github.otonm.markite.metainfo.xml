@@ -5,8 +5,9 @@
   <name>Markite</name>
   <summary>Edit and preview Markdown</summary>
   <metadata_license>CC0-1.0</metadata_license>
-  <project_license>GPL-2.0-or-later</project_license>
+  <project_license>MIT</project_license>
   <url type="homepage">https://github.com/otonm/markite</url>
   <description><p>A native Plasma Markdown editor with live preview.</p></description>
-  <releases><release version="0.1.0" date="2026-10-04"/></releases>
+  <provides><mediatype>text/markdown</mediatype></provides>
+  <releases><release version="1.0.0" date="2026-10-06"/></releases>
 </component>
