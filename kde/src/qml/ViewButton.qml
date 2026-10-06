@@ -10,10 +10,11 @@ Controls.ToolButton {
     property string tip
     property bool showCode: false
     property bool showPreview: false
+    property string iconName   // when set, shows this theme icon instead of the pane shapes
 
     padding: 4
     Controls.ToolTip.text: tip
-    Controls.ToolTip.visible: hovered
+    Controls.ToolTip.visible: hovered && !(iconName !== "" && active)
     Controls.ToolTip.delay: Kirigami.Units.toolTipDelay
 
     // The desktop style doesn't mark checked tool buttons clearly; tint the active one.
@@ -27,7 +28,14 @@ Controls.ToolButton {
         // Same 10:7 proportions as the menu icons; height ~ the neighbouring menu button.
         implicitWidth: 30
         implicitHeight: 21
+        Kirigami.Icon {
+            anchors.centerIn: parent
+            width: Kirigami.Units.iconSizes.smallMedium; height: width
+            visible: btn.iconName !== ""
+            source: btn.iconName
+        }
         Rectangle {
+            visible: btn.iconName === ""
             anchors.fill: parent
             color: "transparent"
             radius: 2
@@ -36,12 +44,12 @@ Controls.ToolButton {
         }
         Rectangle {  // left half = code
             x: 4; y: 4; width: parent.width / 2 - 4.5; height: parent.height - 8
-            visible: btn.showCode
+            visible: btn.iconName === "" && btn.showCode
             color: Kirigami.Theme.textColor
         }
         Rectangle {  // right half = preview
             x: parent.width / 2 + 0.5; y: 4; width: parent.width / 2 - 4.5; height: parent.height - 8
-            visible: btn.showPreview
+            visible: btn.iconName === "" && btn.showPreview
             color: Kirigami.Theme.textColor
         }
     }

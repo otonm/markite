@@ -30,6 +30,7 @@ Kirigami.ApplicationWindow {
         category: "View"
         property bool syncScroll: true
         property bool wrapText: false
+        property bool showMinimap: true
         property int viewMode: 2   // 0 code only, 1 preview only, 2 both; restored on next launch
         onViewModeChanged: { Qt.callLater(sync.fromEditor); split.switchTo(viewMode) }
     }
@@ -58,88 +59,104 @@ Kirigami.ApplicationWindow {
 
     pageStack.initialPage: Kirigami.Page {
         id: mainPage
-        // Top-left: live statistics. Top-right: one vertical three-dots menu holding every action.
+        // Top-left: the three-dots menu and view buttons. Top-right: live word / character count.
         title: doc.wordCount + (doc.wordCount === 1 ? " word" : " words")
+               + " / " + doc.charCount + (doc.charCount === 1 ? " character" : " characters")
         padding: 0
 
         // Plain SVGs aren't recoloured by icon.color: use the white glyph on dark themes, black on light.
         readonly property string iconSuffix: Kirigami.Theme.textColor.hsvValue > 0.5 ? "-light" : ""
 
-        // Toolbar: shape-only buttons (custom display component, no label).
-        Kirigami.Action {
-            id: toolbarCode
-            displayComponent: ViewButton { active: settings.viewMode === 0; tip: "Code only (Ctrl+1)"
-                                           showCode: true; onClicked: settings.viewMode = 0 }
-        }
-        Kirigami.Action {
-            id: toolbarPreview
-            displayComponent: ViewButton { active: settings.viewMode === 1; tip: "Preview only (Ctrl+2)"
-                                           showPreview: true; onClicked: settings.viewMode = 1 }
-        }
-        Kirigami.Action {
-            id: toolbarBoth
-            displayComponent: ViewButton { active: settings.viewMode === 2; tip: "Code and preview (Ctrl+3)"
-                                           showCode: true; showPreview: true; onClicked: settings.viewMode = 2 }
-        }
+        // Actions own the shortcuts and are shown in the menu below.
+        Controls.Action { id: openAction; text: "Open…"; icon.name: "document-open"; shortcut: StandardKey.Open
+            onTriggered: openDialog.open() }
+        Controls.Action { id: saveAction; text: "Save"; icon.name: "document-save"; shortcut: StandardKey.Save
+            onTriggered: doc.path ? doc.save() : saveDialog.open() }
+        Controls.Action { id: saveAsAction; text: "Save As…"; icon.name: "document-save-as"; shortcut: StandardKey.SaveAs
+            onTriggered: saveDialog.open() }
+        Controls.Action { id: quitAction; text: "Exit"; icon.name: "application-exit"; shortcut: "Ctrl+W"
+            onTriggered: Qt.quit() }
 
-        // View submenu: labelled entries with the same shapes. They own the shortcuts; the
-        // Bindings re-assert `checked` from settings (a click would otherwise break the binding).
-        Kirigami.Action {
-            id: menuCode
+        // View modes. The Bindings re-assert `checked` from settings (a click would otherwise break the binding).
+        Controls.Action {
+            id: viewCodeAction
             text: "Code Only"; shortcut: "Ctrl+1"; checkable: true
             icon.source: "qrc:/icons/view-code" + mainPage.iconSuffix + ".svg"; icon.color: Kirigami.Theme.textColor
             onTriggered: settings.viewMode = 0
         }
-        Kirigami.Action {
-            id: menuPreview
+        Controls.Action {
+            id: viewPreviewAction
             text: "Preview Only"; shortcut: "Ctrl+2"; checkable: true
             icon.source: "qrc:/icons/view-preview" + mainPage.iconSuffix + ".svg"; icon.color: Kirigami.Theme.textColor
             onTriggered: settings.viewMode = 1
         }
-        Kirigami.Action {
-            id: menuBoth
+        Controls.Action {
+            id: viewBothAction
             text: "Code and Preview"; shortcut: "Ctrl+3"; checkable: true
             icon.source: "qrc:/icons/view-both" + mainPage.iconSuffix + ".svg"; icon.color: Kirigami.Theme.textColor
             onTriggered: settings.viewMode = 2
         }
-        Binding { target: menuCode; property: "checked"; value: settings.viewMode === 0 }
-        Binding { target: menuPreview; property: "checked"; value: settings.viewMode === 1 }
-        Binding { target: menuBoth; property: "checked"; value: settings.viewMode === 2 }
+        Binding { target: viewCodeAction; property: "checked"; value: settings.viewMode === 0 }
+        Binding { target: viewPreviewAction; property: "checked"; value: settings.viewMode === 1 }
+        Binding { target: viewBothAction; property: "checked"; value: settings.viewMode === 2 }
 
-        Kirigami.Action {
-            id: menuAction
-            text: "Menu"
-            icon.name: "overflow-menu"
-            Kirigami.Action { text: "Open…"; icon.name: "document-open"; shortcut: StandardKey.Open; onTriggered: openDialog.open() }
-            Kirigami.Action { text: "Save"; icon.name: "document-save"; shortcut: StandardKey.Save
-                onTriggered: doc.path ? doc.save() : saveDialog.open() }
-            Kirigami.Action { text: "Save As…"; icon.name: "document-save-as"; shortcut: StandardKey.SaveAs; onTriggered: saveDialog.open() }
-            Kirigami.Action { separator: true }
-            Kirigami.Action {
-                text: "View"
-                icon.name: "view-split-left-right"
-                children: [menuCode, menuPreview, menuBoth]
-            }
-            Kirigami.Action {
-                text: "Sync Scrolling"
-                tooltip: "Keep editor and preview at the same position"
-                icon.name: "link"
-                checkable: true
-                checked: settings.syncScroll
-                shortcut: "Ctrl+Shift+L"
-                onToggled: { settings.syncScroll = checked; if (checked) sync.fromEditor() }
-            }
-            Kirigami.Action {
-                text: "Wrap Text"
-                tooltip: "Wrap long lines instead of scrolling horizontally"
-                icon.name: "text-wrap"
-                checkable: true
-                checked: settings.wrapText
-                onToggled: settings.wrapText = checked
-            }
+        Controls.Action {
+            id: syncAction
+            text: "Sync Scrolling"; icon.name: "link"; shortcut: "Ctrl+Shift+L"
+            checkable: true; checked: settings.syncScroll
+            onToggled: { settings.syncScroll = checked; if (checked) sync.fromEditor() }
+        }
+        Controls.Action {
+            id: wrapAction
+            text: "Wrap Text"; icon.name: "text-wrap"
+            checkable: true; checked: settings.wrapText
+            onToggled: settings.wrapText = checked
+        }
+        Controls.Action {
+            id: minimapAction
+            text: "Show Minimap"; icon.name: "view-list-details"
+            checkable: true; checked: settings.showMinimap
+            onToggled: settings.showMinimap = checked
         }
 
-        actions: [toolbarCode, toolbarPreview, toolbarBoth, menuAction]
+        Controls.Menu {
+            id: mainMenu
+            Controls.MenuItem { action: openAction }
+            Controls.MenuItem { action: saveAction }
+            Controls.MenuItem { action: saveAsAction }
+            Controls.MenuSeparator {}
+            Controls.Menu {
+                title: "View"
+                icon.name: "view-split-left-right"
+                Controls.MenuItem { action: viewCodeAction }
+                Controls.MenuItem { action: viewPreviewAction }
+                Controls.MenuItem { action: viewBothAction }
+            }
+            Controls.MenuItem { action: syncAction }
+            Controls.MenuItem { action: wrapAction }
+            Controls.MenuItem { action: minimapAction }
+            Controls.MenuSeparator {}
+            Controls.MenuItem { action: quitAction }
+        }
+
+        titleDelegate: RowLayout {
+            spacing: Kirigami.Units.smallSpacing
+            ViewButton { id: menuButton; iconName: "overflow-menu"; tip: "Menu"
+                         active: mainMenu.visible; onClicked: mainMenu.popup(menuButton, 0, menuButton.height) }
+            ViewButton { active: settings.viewMode === 0; tip: "Code only (Ctrl+1)"
+                         showCode: true; onClicked: settings.viewMode = 0 }
+            ViewButton { active: settings.viewMode === 1; tip: "Preview only (Ctrl+2)"
+                         showPreview: true; onClicked: settings.viewMode = 1 }
+            ViewButton { active: settings.viewMode === 2; tip: "Code and preview (Ctrl+3)"
+                         showCode: true; showPreview: true; onClicked: settings.viewMode = 2 }
+            Controls.Label {
+                text: mainPage.title
+                font.pointSize: Kirigami.Theme.defaultFont.pointSize * 0.8
+                horizontalAlignment: Text.AlignRight
+                rightPadding: Kirigami.Units.largeSpacing
+                Layout.fillWidth: true
+            }
+        }
 
         // Editor <-> preview position sync. Core maps source lines to preview blocks
         // (doc.lineToBlock / doc.blockToLine); this only measures where blocks landed.
@@ -324,6 +341,7 @@ Kirigami.ApplicationWindow {
                 // ponytail: full repaint on every keystroke; cache rows per line if large files lag.
                 Canvas {
                     id: minimap
+                    visible: settings.showMinimap
                     Layout.preferredWidth: 80
                     Layout.fillHeight: true
                     property int rowH: 2

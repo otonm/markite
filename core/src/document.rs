@@ -62,6 +62,11 @@ impl Document {
         self.text.split_whitespace().count()
     }
 
+    /// Characters excluding all whitespace (spaces, tabs, newlines).
+    pub fn char_count(&self) -> usize {
+        self.text.chars().filter(|c| !c.is_whitespace()).count()
+    }
+
     pub fn render_html(&self) -> String {
         crate::render::to_html(&self.text)
     }
@@ -93,6 +98,7 @@ mod tests {
         let reopened = Document::open(&file).unwrap();
         assert_eq!(reopened.text(), "# hi");
         assert_eq!(reopened.word_count(), 2);
+        assert_eq!(reopened.char_count(), 3); // "# hi" without the space
         assert_eq!(reopened.path(), Some(file.as_path()));
 
         fs::remove_dir_all(dir).unwrap();

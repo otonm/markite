@@ -29,6 +29,7 @@ mod ffi {
         #[qproperty(QString, path)]
         #[qproperty(bool, dirty)]
         #[qproperty(i32, word_count)]
+        #[qproperty(i32, char_count)]
         type Document = super::DocumentRust;
 
         /// Called from QML `onTextChanged`; re-renders and updates `dirty`.
@@ -62,6 +63,7 @@ pub struct DocumentRust {
     path: QString,
     dirty: bool,
     word_count: i32,
+    char_count: i32,
     inner: markite_core::Document,
     blocks: Vec<Block>,
 }
@@ -77,10 +79,12 @@ impl ffi::Document {
         }
         let dirty = self.rust().inner.is_dirty();
         let words = self.rust().inner.word_count() as i32;
+        let chars = self.rust().inner.char_count() as i32;
         self.as_mut().rust_mut().blocks = blocks;
         self.as_mut().set_blocks_html(QStringList::from(&html));
         self.as_mut().set_dirty(dirty);
-        self.set_word_count(words);
+        self.as_mut().set_word_count(words);
+        self.set_char_count(chars);
     }
 
     fn sync_from_core(mut self: Pin<&mut Self>) {
