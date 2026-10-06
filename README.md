@@ -21,6 +21,10 @@ and its preview.
 - **Scroll sync** between editor and preview (toggle in the menu, `Ctrl+Shift+L`).
 - **Code editor** with Markdown syntax highlighting, line numbers that stay put while you scroll
   horizontally, optional word wrap, and an optional minimap.
+- **Editor themes** (Kate themes): Breeze, Atom One, Catppuccin (Latte / Mocha), GitHub and Solarized, each
+  with a light and a dark variant. The variant follows your system theme by default; the Theme menu can
+  force always light or always dark. The theme applies to the editor, line numbers, minimap and
+  the preview.
 - **Word and character count** (characters without whitespace) in the top right.
 - **Opens files from the command line**: `markite notes.md` (a plain path or a `file://` URL).
 - **Simple UI**: three-dots menu with Open, Save, Save As, View, Sync Scrolling, Wrap Text, Show Minimap
@@ -84,4 +88,4 @@ unsaved changes.
 
 ## License
 
-[MIT](LICENSE). The AppImage bundles Qt and KDE Frameworks libraries, which keep their own (LGPL) licenses.
+[MIT](LICENSE). The editor theme colours are taken from KDE's syntax-highlighting themes (also MIT; copyright notices are in `kde/src/qml/EditorThemes.qml`). The AppImage bundles Qt and KDE Frameworks libraries, which keep their own (LGPL) licenses.

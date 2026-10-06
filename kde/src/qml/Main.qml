@@ -30,6 +30,17 @@ Kirigami.ApplicationWindow {
     width: Kirigami.Units.gridUnit * 60
     height: Kirigami.Units.gridUnit * 35
 
+    // Radio-style menu entry driven by `selected`; a click can never leave it out of step with the setting.
+    component ChoiceItem: Controls.MenuItem {
+        id: item
+        property bool selected: false
+        checkable: true
+        checked: selected
+        onCheckedChanged: if (checked !== selected) checked = Qt.binding(() => item.selected)
+    }
+
+    EditorThemes { id: themeData }
+
     Document {
         id: doc
         onError: message => showPassiveNotification(message)
@@ -43,6 +54,8 @@ Kirigami.ApplicationWindow {
         property bool syncScroll: true
         property bool wrapText: false
         property bool showMinimap: true
+        property string editorTheme: "Breeze"   // theme family, see mainPage.themeFamilies
+        property string appearance: "system"    // "system" | "light" | "dark": which variant of the family
         property int viewMode: 2   // 0 code only, 1 preview only, 2 both; restored on next launch
         onViewModeChanged: { Qt.callLater(sync.fromEditor); split.switchTo(viewMode) }
     }
@@ -76,6 +89,30 @@ Kirigami.ApplicationWindow {
                + " / " + doc.charCount + (doc.charCount === 1 ? " character" : " characters")
         padding: 0
 
+        // Editor theme: a family has a light and a dark Kate theme; the variant follows the system
+        // palette unless `appearance` forces one. Themed: editor, gutter, minimap and preview.
+        readonly property var themeFamilies: [
+            { name: "Breeze", light: "Breeze Light", dark: "Breeze Dark" },
+            { name: "Atom One", light: "Atom One Light", dark: "Atom One Dark" },
+            { name: "Catppuccin", light: "Catppuccin Latte", dark: "Catppuccin Mocha" },
+            { name: "GitHub", light: "GitHub Light", dark: "GitHub Dark" },
+            { name: "Solarized", light: "Solarized Light", dark: "Solarized Dark" }
+        ]
+        readonly property bool darkEditor: settings.appearance === "dark"
+            || (settings.appearance === "system" && Kirigami.Theme.textColor.hsvValue > 0.5)
+        readonly property string themeName: {
+            const family = themeFamilies.find(f => f.name === settings.editorTheme) || themeFamilies[0];
+            return darkEditor ? family.dark : family.light;
+        }
+        readonly property var themeColors: themeData.themes[themeName]
+        // Qt rich text supports a CSS subset; this styles the HTML blocks of the preview.
+        readonly property string previewStyle: "<html><head><style>"
+            + "a { color: " + themeColors.link + "; }"
+            + "h1, h2, h3, h4, h5, h6 { color: " + themeColors.heading + "; }"
+            + "code, pre { color: " + themeColors.code + "; background-color: " + themeColors.codeBackground + "; }"
+            + "blockquote { color: " + themeColors.quote + "; }"
+            + "</style></head><body>"
+
         // Plain SVGs aren't recoloured by icon.color: use the white glyph on dark themes, black on light.
         readonly property string iconSuffix: Kirigami.Theme.textColor.hsvValue > 0.5 ? "-light" : ""
 
@@ -95,18 +132,24 @@ Kirigami.ApplicationWindow {
             text: "Code Only"; shortcut: "Ctrl+1"; checkable: true
             icon.source: "qrc:/icons/view-code" + mainPage.iconSuffix + ".svg"; icon.color: Kirigami.Theme.textColor
             onTriggered: settings.viewMode = 0
+            // Triggering the active mode again toggles it off; re-check it once Qt has finished toggling.
+            onCheckedChanged: if (!checked && settings.viewMode === 0) Qt.callLater(() => checked = true)
         }
         Controls.Action {
             id: viewPreviewAction
             text: "Preview Only"; shortcut: "Ctrl+2"; checkable: true
             icon.source: "qrc:/icons/view-preview" + mainPage.iconSuffix + ".svg"; icon.color: Kirigami.Theme.textColor
             onTriggered: settings.viewMode = 1
+            // Triggering the active mode again toggles it off; re-check it once Qt has finished toggling.
+            onCheckedChanged: if (!checked && settings.viewMode === 1) Qt.callLater(() => checked = true)
         }
         Controls.Action {
             id: viewBothAction
             text: "Code and Preview"; shortcut: "Ctrl+3"; checkable: true
             icon.source: "qrc:/icons/view-both" + mainPage.iconSuffix + ".svg"; icon.color: Kirigami.Theme.textColor
             onTriggered: settings.viewMode = 2
+            // Triggering the active mode again toggles it off; re-check it once Qt has finished toggling.
+            onCheckedChanged: if (!checked && settings.viewMode === 2) Qt.callLater(() => checked = true)
         }
         Binding { target: viewCodeAction; property: "checked"; value: settings.viewMode === 0 }
         Binding { target: viewPreviewAction; property: "checked"; value: settings.viewMode === 1 }
@@ -143,6 +186,19 @@ Kirigami.ApplicationWindow {
                 Controls.MenuItem { action: viewCodeAction }
                 Controls.MenuItem { action: viewPreviewAction }
                 Controls.MenuItem { action: viewBothAction }
+            }
+            Controls.Menu {
+                title: "Theme"
+                icon.name: "preferences-desktop-color"
+                ChoiceItem { text: "Breeze"; selected: settings.editorTheme === "Breeze"; onTriggered: settings.editorTheme = "Breeze" }
+                ChoiceItem { text: "Atom One"; selected: settings.editorTheme === "Atom One"; onTriggered: settings.editorTheme = "Atom One" }
+                ChoiceItem { text: "Catppuccin"; selected: settings.editorTheme === "Catppuccin"; onTriggered: settings.editorTheme = "Catppuccin" }
+                ChoiceItem { text: "GitHub"; selected: settings.editorTheme === "GitHub"; onTriggered: settings.editorTheme = "GitHub" }
+                ChoiceItem { text: "Solarized"; selected: settings.editorTheme === "Solarized"; onTriggered: settings.editorTheme = "Solarized" }
+                Controls.MenuSeparator {}
+                ChoiceItem { text: "Follow System"; selected: settings.appearance === "system"; onTriggered: settings.appearance = "system" }
+                ChoiceItem { text: "Always Light"; selected: settings.appearance === "light"; onTriggered: settings.appearance = "light" }
+                ChoiceItem { text: "Always Dark"; selected: settings.appearance === "dark"; onTriggered: settings.appearance = "dark" }
             }
             Controls.MenuItem { action: syncAction }
             Controls.MenuItem { action: wrapAction }
@@ -264,6 +320,7 @@ Kirigami.ApplicationWindow {
             Item {
                 id: editorPane
                 clip: true
+                Rectangle { anchors.fill: parent; color: mainPage.themeColors.background }
                 visible: settings.viewMode !== 1 || split.animating
                 Controls.SplitView.fillWidth: settings.viewMode === 0 && !split.animating
                 Controls.SplitView.minimumWidth: split.animating ? 0 : Kirigami.Units.gridUnit * 10
@@ -297,7 +354,7 @@ Kirigami.ApplicationWindow {
                         Controls.Label {
                             text: index + 1
                             font: editor.font
-                            color: Kirigami.Theme.disabledTextColor
+                            color: mainPage.themeColors.lineNumber
                             horizontalAlignment: Text.AlignRight
                             width: gutter.width
                             rightPadding: Kirigami.Units.smallSpacing
@@ -330,6 +387,9 @@ Kirigami.ApplicationWindow {
                             font: Kirigami.Theme.fixedWidthFont
                             wrapMode: settings.wrapText ? TextEdit.Wrap : TextEdit.NoWrap
                             background: null
+                            color: mainPage.themeColors.text
+                            selectionColor: mainPage.themeColors.selection
+                            selectedTextColor: mainPage.themeColors.selectedText
                             // Measured line pitch and first-line offset (padding, document margin) for gutter, minimap and sync.
                             // ponytail: lineH is one average pitch; minimap/sync drift under wrap (default off). Measure per-line if it matters.
                             readonly property real firstLineY: length >= 0 ? positionToRectangle(0).y : 0
@@ -343,7 +403,7 @@ Kirigami.ApplicationWindow {
                                 return o;
                             }
                             onTextChanged: doc.updateText(text)
-                            SyntaxHighlighter { textEdit: editor; definition: "Markdown"; theme: Repository.theme("Breeze Dark") }
+                            SyntaxHighlighter { textEdit: editor; definition: "Markdown"; theme: Repository.theme(mainPage.themeName) }
                             FontMetrics { id: fm; font: editor.font }
                         }
                     }
@@ -359,11 +419,13 @@ Kirigami.ApplicationWindow {
                     property int rowH: 2
                     Connections { target: editor; function onTextChanged() { minimap.requestPaint() } }
                     Connections { target: scroll.contentItem; function onContentYChanged() { minimap.requestPaint() } }
+                    Connections { target: mainPage; function onThemeColorsChanged() { minimap.requestPaint() } }
                     onPaint: {
                         const ctx = getContext("2d");
                         ctx.clearRect(0, 0, width, height);
                         const rows = doc.minimapRows(); // [indent, len, kind] triples from core
-                        const colors = [null, Kirigami.Theme.highlightColor, Kirigami.Theme.positiveTextColor, Kirigami.Theme.disabledTextColor];
+                        const t = mainPage.themeColors;
+                        const colors = [null, t.heading, t.code, Qt.alpha(t.text, 0.5)];
                         for (let i = 0; i * 3 < rows.length && i * rowH < height; i++) {
                             const indent = rows[i * 3], len = rows[i * 3 + 1], kind = rows[i * 3 + 2];
                             if (kind === 0) continue;
@@ -372,7 +434,7 @@ Kirigami.ApplicationWindow {
                         }
                         // viewport
                         const f = scroll.contentItem;
-                        ctx.fillStyle = Qt.rgba(0.5, 0.5, 0.5, 0.25);
+                        ctx.fillStyle = Qt.alpha(mainPage.themeColors.text, 0.2);
                         ctx.fillRect(0, f.contentY / editor.lineH * rowH, width, f.height / editor.lineH * rowH);
                     }
                     MouseArea { anchors.fill: parent; onPressed: mouse => sync.setY(scroll.contentItem, mouse.y / minimap.rowH * editor.lineH)
@@ -387,6 +449,7 @@ Kirigami.ApplicationWindow {
             Controls.ScrollView {
                 id: previewScroll
                 visible: settings.viewMode !== 0 || split.animating
+                background: Rectangle { color: mainPage.themeColors.background }
                 Controls.ScrollBar.horizontal.policy: split.animating ? Controls.ScrollBar.AlwaysOff : Controls.ScrollBar.AsNeeded
                 Controls.SplitView.fillWidth: true
                 Controls.SplitView.minimumWidth: split.animating ? 0 : Kirigami.Units.gridUnit * 10
@@ -407,7 +470,10 @@ Kirigami.ApplicationWindow {
                             width: blocksCol.width - blocksCol.leftPadding - blocksCol.rightPadding
                             readOnly: true
                             textFormat: TextEdit.RichText
-                            text: modelData
+                            text: mainPage.previewStyle + modelData + "</body></html>"
+                            color: mainPage.themeColors.text
+                            selectionColor: mainPage.themeColors.selection
+                            selectedTextColor: mainPage.themeColors.selectedText
                             wrapMode: TextEdit.Wrap
                             background: null
                             padding: 0
