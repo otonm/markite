@@ -9,6 +9,9 @@ import io.github.otonm.markite
 
 Kirigami.ApplicationWindow {
     id: root
+    property bool ready: false          // false while settings load: no transition animation at startup
+    property real bothWidth: -1         // editor width in "both" mode (remembered across mode switches)
+    Component.onCompleted: Qt.callLater(() => ready = true)
     title: (doc.dirty ? "* " : "") + (doc.path || "Untitled") + " — Markite"
     minimumWidth: Kirigami.Units.gridUnit * 30
     minimumHeight: Kirigami.Units.gridUnit * 20
@@ -28,7 +31,7 @@ Kirigami.ApplicationWindow {
         property bool syncScroll: true
         property bool wrapText: false
         property int viewMode: 2   // 0 code only, 1 preview only, 2 both; restored on next launch
-        onViewModeChanged: Qt.callLater(sync.fromEditor)
+        onViewModeChanged: { Qt.callLater(sync.fromEditor); split.switchTo(viewMode) }
     }
 
     // Two-way aliases: Settings restores these on launch and saves them on change.
@@ -197,13 +200,56 @@ Kirigami.ApplicationWindow {
             id: split
             anchors.fill: parent
 
+            // View-mode transition: animate the editor pane's width; the preview (fillWidth) takes
+            // the rest. Both panes stay visible with min widths lifted until the animation ends.
+            property int shown: 2
+            property bool animating: false
+            function switchTo(mode) {
+                const prev = shown;
+                shown = mode;
+                if (!root.ready || width <= 0) return;
+                if (prev === 2 && !animating) root.bothWidth = editorPane.width;
+                const from = editorPane.visible ? editorPane.width : 0;
+                const target = mode === 0 ? width : mode === 1 ? 0 : (root.bothWidth > 0 ? root.bothWidth : width / 2);
+                animating = true;
+                editorPane.Controls.SplitView.preferredWidth = from;
+                slide.from = from;
+                slide.to = target;
+                slide.restart();
+            }
+            NumberAnimation {
+                id: slide
+                target: editorPane.Controls.SplitView
+                property: "preferredWidth"
+                duration: 180
+                easing.type: Easing.OutCubic
+                onFinished: {
+                    split.animating = false;
+                    // Back to 50/50 (or the remembered width) following window resizes until the next drag.
+                    if (split.shown === 2)
+                        editorPane.Controls.SplitView.preferredWidth = Qt.binding(() => root.bothWidth > 0 ? root.bothWidth : split.width / 2);
+                }
+            }
+
             // ---- editor: gutter | text | minimap ----
-            RowLayout {
-                visible: settings.viewMode !== 1
-                Controls.SplitView.fillWidth: settings.viewMode === 0
-                Controls.SplitView.minimumWidth: Kirigami.Units.gridUnit * 10
+            Item {
+                id: editorPane
+                clip: true
+                visible: settings.viewMode !== 1 || split.animating
+                Controls.SplitView.fillWidth: settings.viewMode === 0 && !split.animating
+                Controls.SplitView.minimumWidth: split.animating ? 0 : Kirigami.Units.gridUnit * 10
                 // 50/50 until the user drags: SplitView assigns preferredWidth on drag, replacing this binding.
                 Controls.SplitView.preferredWidth: split.width / 2
+                implicitWidth: 0
+
+              // Content keeps at least its "both" width and is right-anchored, so while the pane grows
+              // from zero the editor slides in from the left instead of reflowing.
+              RowLayout {
+                id: editorRow
+                readonly property real steadyWidth: root.bothWidth > 0 ? root.bothWidth : split.width / 2
+                width: Math.max(editorPane.width, steadyWidth)
+                height: editorPane.height
+                x: editorPane.width - width
                 spacing: 0
                 implicitWidth: 0
 
@@ -302,6 +348,7 @@ Kirigami.ApplicationWindow {
                     MouseArea { anchors.fill: parent; onPressed: mouse => sync.setY(scroll.contentItem, mouse.y / minimap.rowH * editor.lineH)
                                 onPositionChanged: mouse => { if (pressed) sync.setY(scroll.contentItem, mouse.y / minimap.rowH * editor.lineH) } }
                 }
+              }
             }
 
             // ---- preview ----
@@ -309,13 +356,17 @@ Kirigami.ApplicationWindow {
             // ponytail: Repeater rebuilds every block per keystroke; diff by index if long docs lag.
             Controls.ScrollView {
                 id: previewScroll
-                visible: settings.viewMode !== 0
+                visible: settings.viewMode !== 0 || split.animating
+                Controls.ScrollBar.horizontal.policy: split.animating ? Controls.ScrollBar.AlwaysOff : Controls.ScrollBar.AsNeeded
                 Controls.SplitView.fillWidth: true
-                Controls.SplitView.minimumWidth: Kirigami.Units.gridUnit * 10
+                Controls.SplitView.minimumWidth: split.animating ? 0 : Kirigami.Units.gridUnit * 10
                 HoverHandler { id: previewHover }
                 Column {
                     id: blocksCol
-                    width: previewScroll.availableWidth
+                    // While the pane is animating, keep the "both" width so the text is covered/uncovered
+                    // instead of reflowing into a squeezed column.
+                    width: split.animating ? Math.max(previewScroll.availableWidth, split.width - editorRow.steadyWidth)
+                                           : previewScroll.availableWidth
                     padding: Kirigami.Units.largeSpacing
                     spacing: Kirigami.Units.smallSpacing
                     Repeater {
