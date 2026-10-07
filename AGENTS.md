@@ -60,6 +60,12 @@ A headless smoke run (`QT_QPA_PLATFORM=offscreen`) only proves QML loads. For la
 
 ## Building
 
+- Releases: `./docker/build_release.sh <version>` → lean `debug-build/markite-<version>-x86_64.AppImage` + `.sha256`
+  (first runs `docker/set_version.sh`: Cargo.toml x2, Cargo.lock, CMakeLists, metainfo; then size-optimised Rust binary, prunes unused plugins/QML/libs, smoke-tests it).
+  The prune list is the `LEAN` block in `docker/appimage.sh`. **Keep it updated**: a new feature that needs a plugin,
+  QML module or library must not be pruned (e.g. a thumbnail or GTK feature); a feature that makes one unnecessary
+  adds to the list. After editing it, launch the AppImage (Xvfb) and check preview, Open dialog, themes.
+
 When done with the implementation of a fix or a feature, always build an AppImage file in debug-build.
 
 ## Honesty
