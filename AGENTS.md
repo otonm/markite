@@ -9,13 +9,17 @@
 - Rule: new feature = core method + test → one conversion-only `#[qinvokable]`/`#[qproperty]` in the bridge → bind in QML.
   If the bridge needs an `if` that isn't type conversion, it belongs in core.
 - The frontend mirrors one `core::Document`; it never owns the source of truth.
+- Tests: core in `core/tests/*.rs` (one binary per file, public API only); QML logic in `kde/tests/qml/` (QtQuickTest,
+  run by `build.sh`). kde has no Rust tests (binary crate): put testable logic in core, extract testable QML into a
+  Kirigami-free component. Preview code colours come from `core/src/syntax_themes.rs`, generated together with
+  `EditorThemes.qml` by `kde/tools/gen_editor_themes.py`: re-run it when themes change, don't hand-edit.
 
 ## Build
 
 - No cargo/Qt on the host. Use `./docker/build.sh`: core tests as a static musl binary (`rust:alpine`),
   KDE debug build + headless QML smoke test in the Fedora image (`docker/Dockerfile.kde`).
-- `./docker/appimage.sh` → `debug-build/markite-x86_64.AppImage`.
-- Outputs go to `debug-build/`. Caches live in `.docker-cache/` (both gitignored).
+- `./docker/appimage.sh` → full `builds/debug/markite-x86_64.AppImage`. Releases: see "Building" below.
+- Outputs go to `builds/debug/` (dev builds) and `builds/release/` (releases). Caches live in `.docker-cache/` (both gitignored).
 
 ## Hard-won constraints
 
@@ -60,13 +64,13 @@ A headless smoke run (`QT_QPA_PLATFORM=offscreen`) only proves QML loads. For la
 
 ## Building
 
-- Releases: `./docker/build_release.sh <version>` → lean `debug-build/markite-<version>-x86_64.AppImage` + `.sha256`
+- Releases: `./docker/build_release.sh <version>` → lean `builds/release/markite-<version>-x86_64.AppImage` + `.sha256`
   (first runs `docker/set_version.sh`: Cargo.toml x2, Cargo.lock, CMakeLists, metainfo; then size-optimised Rust binary, prunes unused plugins/QML/libs, smoke-tests it).
   The prune list is the `LEAN` block in `docker/appimage.sh`. **Keep it updated**: a new feature that needs a plugin,
   QML module or library must not be pruned (e.g. a thumbnail or GTK feature); a feature that makes one unnecessary
   adds to the list. After editing it, launch the AppImage (Xvfb) and check preview, Open dialog, themes.
 
-When done with the implementation of a fix or a feature, always build an AppImage file in debug-build.
+When done with the implementation of a fix or a feature, always build an AppImage file in builds/debug.
 
 ## Honesty
 

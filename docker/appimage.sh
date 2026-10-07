@@ -1,6 +1,6 @@
 #!/bin/sh
 # Release build + AppImage, all inside the Fedora image.
-#   ./docker/appimage.sh  -> debug-build/markite-x86_64.AppImage
+#   ./docker/appimage.sh  -> builds/debug/markite-x86_64.AppImage
 #   LEAN=1 OUT=path ./docker/appimage.sh   -> pruned build (use docker/build_release.sh)
 #
 # Why not linuxdeploy: its bundled patchelf/strip predate RELR relocations, which Fedora 44
@@ -12,7 +12,8 @@
 set -eu
 cd "$(dirname "$0")/.."
 sudo docker build -q -t markite-build -f docker/Dockerfile.kde docker >/dev/null
-LEAN=${LEAN:-}; OUT=${OUT:-debug-build/markite-x86_64.AppImage}
+LEAN=${LEAN:-}; OUT=${OUT:-builds/debug/markite-x86_64.AppImage}
+mkdir -p "$(dirname "$OUT")"
 # Lean: size-optimised, stripped Rust binary in its own target dir (so normal builds keep their cache).
 if [ -n "$LEAN" ]; then
   TD=/src/.docker-cache/target-fedora-lean
@@ -74,5 +75,5 @@ EOF
   [ -x $T ] || { curl -sSL -o $T https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage; chmod +x $T; }
   ARCH=x86_64 $T --no-appstream "$A" "$OUT" >/dev/null
 '
-sudo chown -R "$(id -u):$(id -g)" debug-build .docker-cache
+sudo chown -R "$(id -u):$(id -g)" builds .docker-cache
 ls -l "$OUT"

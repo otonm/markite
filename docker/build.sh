@@ -1,11 +1,11 @@
 #!/bin/sh
 # Builds and tests everything inside Docker. Nothing is installed on the host.
 #   ./docker/build.sh          # core static tests + KDE build + headless QML smoke test
-# Outputs land in debug-build/: markite (KDE app, dynamic Qt).
+# Outputs land in builds/debug/: markite (KDE app, dynamic Qt).
 set -eu
 cd "$(dirname "$0")/.."
 D="sudo docker"
-OUT=debug-build
+OUT=builds/debug
 mkdir -p .docker-cache/cargo .docker-cache/target "$OUT"
 
 echo "== core: static musl tests"

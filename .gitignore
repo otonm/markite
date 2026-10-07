@@ -1,5 +1,5 @@
 .docker-cache/
 target/
 build/
-debug-build/
+builds/
 .qmlls.ini

@@ -25,7 +25,9 @@ and its preview.
   with a light and a dark variant. The variant follows your system theme by default; the Theme menu can
   force always light or always dark. The theme applies to the editor, line numbers, minimap and
   the preview.
-- **Syntax highlighting in the preview**: fenced code blocks are coloured with the selected theme's token colours.
+- **Syntax highlighting in the preview**: fenced code blocks are coloured with the selected theme's token colours
+  (the same colours as the editor), for the languages known to syntect and `two-face` (Rust and TOML are
+  covered by tests). Unknown languages stay plain.
 - **Status bar** (can be switched off in the menu): full path of the open file on the left, word and character
   count (characters without whitespace) on the right. The window title shows just the file name.
 - **Opens files from the command line**: `markite notes.md` (a plain path or a `file://` URL).
@@ -74,8 +76,9 @@ cmake -B build --install-prefix ~/.local \
 Without installing anything on the host, the Docker scripts build everything in a Fedora image:
 
 ```sh
-./docker/build.sh       # core tests, KDE build, headless QML smoke test
-./docker/appimage.sh    # builds debug-build/markite-x86_64.AppImage
+./docker/build.sh                # core tests, KDE build, QML unit tests, headless smoke test -> builds/debug/
+./docker/appimage.sh             # full AppImage -> builds/debug/markite-x86_64.AppImage
+./docker/build_release.sh 1.0.3  # sets the version, builds the lean release AppImage -> builds/release/
 ```
 
 The binary links Qt's private API, so it only runs against the Qt minor version it was built with. The
@@ -84,13 +87,15 @@ will run it.
 
 ## Project layout
 
-- `core/`: the Markdown logic in plain Rust with no GUI dependency (document, block splitting for the
-  preview, minimap data, counts), with unit tests.
-- `kde/`: the Qt/Kirigami frontend: a thin cxx-qt bridge and the QML UI.
+- `core/`: the Markdown logic in plain Rust with no GUI dependency (document, block splitting and code
+  highlighting for the preview, minimap data, counts, remote-path mapping), with integration tests in `core/tests/`.
+- `kde/`: the Qt/Kirigami frontend: a thin cxx-qt bridge and the QML UI, with QML unit tests in `kde/tests/qml/`.
+- `docker/`: build, test and release scripts; `builds/` (gitignored) holds their output.
 
 ## Status
 
-Version 1.0. The core has unit tests; the UI has been tested on KDE Plasma (Wayland). Known limits: with
+The core has integration tests and the theme logic has QML unit tests; the rest of the UI has been tested by
+hand on KDE Plasma (Wayland) and under Xvfb. Known limits: with
 Wrap Text on, the minimap box and scroll sync drift on wrapped lines, and closing the app does not warn about
 unsaved changes.
 
