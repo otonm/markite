@@ -1,18 +1,22 @@
 use cxx_qt_lib::{QGuiApplication, QQmlApplicationEngine, QQuickStyle, QString, QUrl};
 use cxx_qt_lib_extras::QApplication;
 use std::env;
+use std::ffi::c_char;
 
 mod document;
 mod kio;
 
 extern "C" {
-    fn markite_set_window_icon(); // window_icon.cpp
+    fn markite_init_app(version: *const c_char); // app_init.cpp
 }
+
+/// NUL-terminated crate version for the C++ side.
+const VERSION: &str = concat!(env!("CARGO_PKG_VERSION"), "\0");
 
 fn main() {
     let mut app = QApplication::new();
     QGuiApplication::set_desktop_file_name(&QString::from("io.github.otonm.markite"));
-    unsafe { markite_set_window_icon() };
+    unsafe { markite_init_app(VERSION.as_ptr().cast()) };
     if env::var("QT_QUICK_CONTROLS_STYLE").is_err() {
         QQuickStyle::set_style(&QString::from("org.kde.desktop"));
     }

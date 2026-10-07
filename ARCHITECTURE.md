@@ -20,7 +20,7 @@ property, iced message, ...).
 | `minimap::lines` classification    | `Canvas` painting `doc.minimapRows()`           |
 | file I/O (`open/save/save_as`, `load`, `save_with`) | `FileDialog`, menu actions, shortcuts  |
 | (remote I/O is not in core)       | `kde/src/kio.rs` + `kio_shim.cpp`: sftp:// and other URLs go through KIO |
-| `word_count`, `char_count`         | statistics label (top right)                    |
+| `word_count`, `char_count`         | status bar (bottom right; the path is bottom left)                    |
 | (later) settings, search, outline  | (later) QML settings page, Kirigami sheets      |
 
 UI-only state (view mode, wrap, minimap, sync, window geometry) lives in QML `Settings`
@@ -42,7 +42,7 @@ serves it, called from `kde/src/kio.rs`. Local files keep core's plain `std::fs`
 `Document::load`/`save_with` keep dirty tracking in core for both.
 
 The app icon is `io.github.otonm.markite.svg` (installed by CMake, copied into the AppImage, and bundled
-via `icons.qrc`). `kde/src/window_icon.cpp` (one `extern "C"` call from `main.rs`) sets it as the window icon,
+via `icons.qrc`). `kde/src/app_init.cpp` (one `extern "C"` call from `main.rs`) sets it as the window icon (and the app version),
 because cxx-qt-lib has no `QIcon` and Qt does not derive it from the desktop file name.
 `markite [file.md]` opens a file from the first non-option argument (plain path or `file://` URL); the
 `.desktop` file declares `text/markdown` with `%f`, so desktop-integration tools (AppImageLauncher,

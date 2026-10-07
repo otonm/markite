@@ -669,14 +669,16 @@ checksum = "32a66949e030da00e8c7d4434b251670a91556f4144941d37452769c25d58a53"
 
 [[package]]
 name = "markite-core"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "comrak",
+ "syntect",
+ "two-face",
 ]
 
 [[package]]
 name = "markite-kde"
-version = "1.0.1"
+version = "1.0.2"
 dependencies = [
  "cxx",
  "cxx-qt",
@@ -1148,6 +1150,17 @@ name = "tinyvec"
 version = "1.13.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fd3ca314f692efd6c868f8408f53fe444634a845f96c028b97d35f6a1f79f0ee"
+
+[[package]]
+name = "two-face"
+version = "0.5.2+bat-0.26.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "915be7adc2ff6f4338acbf71f3eda0a146f46003b992a1669c674308610efdac"
+dependencies = [
+ "serde",
+ "serde_derive",
+ "syntect",
+]
 
 [[package]]
 name = "typed-arena"

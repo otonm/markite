@@ -6,10 +6,11 @@ fn main() {
         QmlModule::new("io.github.otonm.markite")
             .qml_file("src/qml/Main.qml")
             .qml_file("src/qml/ViewButton.qml")
-            .qml_file("src/qml/EditorThemes.qml"),
+            .qml_file("src/qml/EditorThemes.qml")
+            .qml_file("src/qml/EditorTheme.qml"),
     )
     .qrc("src/icons.qrc")
-    .cpp_file("src/window_icon.cpp")
+    .cpp_file("src/app_init.cpp")
     .cpp_file("src/kio_shim.cpp");
     // KIO shim includes (Fedora layout; the build image installs kf6-kio-devel).
     let builder = unsafe {

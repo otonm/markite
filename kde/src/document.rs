@@ -7,6 +7,7 @@ use cxx_qt::CxxQtType;
 use cxx_qt_lib::{QList, QString, QStringList};
 use crate::kio;
 use markite_core::blocks::{self, Block};
+use markite_core::location;
 
 #[cxx_qt::bridge]
 mod ffi {
@@ -36,6 +37,9 @@ mod ffi {
         /// Called from QML `onTextChanged`; re-renders and updates `dirty`.
         #[qinvokable]
         fn update_text(self: Pin<&mut Document>, text: &QString);
+        /// Editor theme name (e.g. "Breeze Dark"); colours fenced code in the preview.
+        #[qinvokable]
+        fn set_syntax_theme(self: Pin<&mut Document>, theme: &QString);
         #[qinvokable]
         fn open(self: Pin<&mut Document>, path: &QString);
         #[qinvokable]
@@ -67,13 +71,14 @@ pub struct DocumentRust {
     char_count: i32,
     inner: markite_core::Document,
     blocks: Vec<Block>,
+    syntax_theme: String,
 }
 
 impl ffi::Document {
     /// Re-render from core and publish `blocks_html` + `dirty`. Never touches `text`
     /// (echoing it back into the TextArea would reset the cursor).
     fn rerender(mut self: Pin<&mut Self>) {
-        let blocks = self.rust().inner.render_blocks();
+        let blocks = { let r = self.rust(); r.inner.render_blocks(&r.syntax_theme) };
         let mut html = QList::<QString>::default();
         for b in &blocks {
             html.append(QString::from(&b.html));
@@ -113,10 +118,15 @@ impl ffi::Document {
         self.rerender();
     }
 
+    pub fn set_syntax_theme(mut self: Pin<&mut Self>, theme: &QString) {
+        self.as_mut().rust_mut().syntax_theme = theme.to_string();
+        self.rerender();
+    }
+
     pub fn open(mut self: Pin<&mut Self>, path: &QString) {
-        let p = kio::resolve(&path.to_string()); // kio-fuse paths become their sftp:// URL
+        let p = location::resolve(&path.to_string()); // kio-fuse paths become their sftp:// URL
         // Remote URLs (sftp://, ...) go through KIO; local paths use core's std I/O.
-        let r = if kio::is_remote(&p) {
+        let r = if location::is_remote(&p) {
             kio::read(&p).map(|text| self.as_mut().rust_mut().inner.load(&p, text))
         } else {
             markite_core::Document::open(&p).map(|d| self.as_mut().rust_mut().inner = d)
@@ -129,7 +139,7 @@ impl ffi::Document {
             .rust()
             .inner
             .path()
-            .map(|p| kio::is_remote(&p.to_string_lossy()))
+            .map(|p| location::is_remote(&p.to_string_lossy()))
             .unwrap_or(false);
         let r = if remote {
             self.as_mut().rust_mut().inner.save_with(|p, t| kio::write(&p.to_string_lossy(), t))
@@ -140,8 +150,8 @@ impl ffi::Document {
     }
 
     pub fn save_as(mut self: Pin<&mut Self>, path: &QString) {
-        let p = kio::resolve(&path.to_string());
-        let r = if kio::is_remote(&p) {
+        let p = location::resolve(&path.to_string());
+        let r = if location::is_remote(&p) {
             let text = self.rust().inner.text().to_string();
             kio::write(&p, &text).map(|()| self.as_mut().rust_mut().inner.load(&p, text))
         } else {

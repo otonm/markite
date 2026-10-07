@@ -6,7 +6,10 @@
 
 pub mod blocks;
 pub mod document;
+pub mod location;
+mod highlight;
 pub mod minimap;
 pub mod render;
+mod syntax_themes;
 
 pub use document::Document;

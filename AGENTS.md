@@ -40,6 +40,10 @@
 
 ## QML gotchas already hit
 
+- In `Controls.Action` handlers read the state via the action's id (`wrapAction.checked`): a bare `checked`
+  triggers a deprecated-parameter-injection warning, and a formal `checked =>` parameter receives the
+  signal's argument instead of the state (the setting then never flips).
+
 - SplitView: bind `SplitView.preferredWidth` (SplitView overwrites it on drag). Setting it in `Component.onCompleted` gives 0 width.
 - Content inside a ScrollView needs explicit `width/height: Math.max(scroll.available*, implicit*)` or it collapses.
 - Editor line metrics: use the measured `editor.lineH` / `editor.firstLineY` (via `positionToRectangle`) for gutter, minimap and sync.

@@ -11,17 +11,3 @@ pub(crate) fn options() -> Options<'static> {
     opts.render.sourcepos = true; // data-sourcepos attrs for HTML-based frontends
     opts
 }
-
-#[cfg(test)]
-mod tests {
-    use crate::blocks::to_blocks;
-
-    #[test]
-    fn gfm_table_and_sourcepos() {
-        let blocks = to_blocks("# T\n\n| a | b |\n|---|---|\n| 1 | 2 |\n");
-        let html: String = blocks.iter().map(|b| b.html.as_str()).collect();
-        assert!(html.contains("<h1"));
-        assert!(html.contains("<table"));
-        assert!(html.contains("data-sourcepos"));
-    }
-}

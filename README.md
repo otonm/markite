@@ -25,10 +25,12 @@ and its preview.
   with a light and a dark variant. The variant follows your system theme by default; the Theme menu can
   force always light or always dark. The theme applies to the editor, line numbers, minimap and
   the preview.
-- **Word and character count** (characters without whitespace) in the top right.
+- **Syntax highlighting in the preview**: fenced code blocks are coloured with the selected theme's token colours.
+- **Status bar** (can be switched off in the menu): full path of the open file on the left, word and character
+  count (characters without whitespace) on the right. The window title shows just the file name.
 - **Opens files from the command line**: `markite notes.md` (a plain path or a `file://` URL).
-- **Simple UI**: three-dots menu with Open, Save, Save As, View, Sync Scrolling, Wrap Text, Show Minimap
-  and Exit (`Ctrl+W`).
+- **Simple UI**: three-dots menu with Open, Save, Save As, View, Sync Scrolling, Wrap Text, Show Minimap,
+  Show Status Bar, About and Exit (`Ctrl+W`).
 - Remembers window size and position, plus your view settings (stored in `~/.config/markiterc`).
 
 ## Installation

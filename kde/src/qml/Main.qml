@@ -24,7 +24,14 @@ Kirigami.ApplicationWindow {
         doc.open(path);
         editor.text = doc.text;
     }
-    title: (doc.dirty ? "* " : "") + (doc.path || "Untitled") + " — Markite"
+    title: (doc.dirty ? "* " : "") + displayName(doc.path) + " — Markite"
+
+    // File name only (decoded for URLs); the status bar shows the full path.
+    function displayName(path) {
+        if (!path) return "Untitled";
+        const last = path.split("/").pop();
+        try { return path.indexOf("://") >= 0 ? decodeURIComponent(last) : last; } catch (e) { return last; }
+    }
     minimumWidth: Kirigami.Units.gridUnit * 30
     minimumHeight: Kirigami.Units.gridUnit * 20
     width: Kirigami.Units.gridUnit * 60
@@ -39,13 +46,15 @@ Kirigami.ApplicationWindow {
         onCheckedChanged: if (checked !== selected) checked = Qt.binding(() => item.selected)
     }
 
-    EditorThemes { id: themeData }
 
     Document {
         id: doc
         onError: message => showPassiveNotification(message)
         onBlocksHtmlChanged: Qt.callLater(sync.fromEditor)
+        // Core colours fenced code with the editor theme's token colours; re-render on every theme change.
+        Component.onCompleted: setSyntaxTheme(mainPage.themeName)
     }
+    Connections { target: mainPage; function onThemeNameChanged() { doc.setSyntaxTheme(mainPage.themeName) } }
 
     Settings {
         id: settings
@@ -54,7 +63,8 @@ Kirigami.ApplicationWindow {
         property bool syncScroll: true
         property bool wrapText: false
         property bool showMinimap: true
-        property string editorTheme: "Breeze"   // theme family, see mainPage.themeFamilies
+        property bool showStatusBar: true
+        property string editorTheme: "Breeze"   // theme family, see EditorTheme.qml
         property string appearance: "system"    // "system" | "light" | "dark": which variant of the family
         property int viewMode: 2   // 0 code only, 1 preview only, 2 both; restored on next launch
         onViewModeChanged: { Qt.callLater(sync.fromEditor); split.switchTo(viewMode) }
@@ -82,36 +92,91 @@ Kirigami.ApplicationWindow {
         onAccepted: doc.saveAs(decodeURIComponent(selectedFile.toString().replace("file://", "")))
     }
 
+    // Status bar: window-wide and independent of the view mode; just a little taller than its text.
+    footer: Controls.ToolBar {
+        id: statusBar
+        readonly property real textSize: Kirigami.Theme.defaultFont.pointSize * 0.704
+        visible: settings.showStatusBar
+        position: Controls.ToolBar.Footer
+        padding: 0
+        implicitHeight: pathLabel.implicitHeight + Kirigami.Units.smallSpacing * 2
+        RowLayout {
+            anchors.fill: parent
+            anchors.leftMargin: Kirigami.Units.largeSpacing
+            anchors.rightMargin: Kirigami.Units.largeSpacing
+            Controls.Label {
+                id: pathLabel
+                text: doc.path || "Untitled"
+                font.pointSize: statusBar.textSize
+                elide: Text.ElideMiddle
+                Layout.fillWidth: true
+            }
+            Controls.Label {
+                text: doc.wordCount + (doc.wordCount === 1 ? " word" : " words")
+                      + " / " + doc.charCount + (doc.charCount === 1 ? " character" : " characters")
+                font.pointSize: statusBar.textSize
+            }
+        }
+    }
+
+    Kirigami.Dialog {
+        id: aboutDialog
+        title: "About Markite"
+        standardButtons: Kirigami.Dialog.Close
+        padding: Kirigami.Units.largeSpacing
+        ColumnLayout {
+            spacing: Kirigami.Units.smallSpacing
+            implicitWidth: Kirigami.Units.gridUnit * 22
+            Image {
+                source: "qrc:/icons/app.svg"
+                sourceSize.width: Kirigami.Units.gridUnit * 5
+                sourceSize.height: Kirigami.Units.gridUnit * 5
+                Layout.alignment: Qt.AlignHCenter
+            }
+            Kirigami.Heading { text: "Markite"; Layout.alignment: Qt.AlignHCenter }
+            Controls.Label { text: "Version " + Qt.application.version; Layout.alignment: Qt.AlignHCenter }
+            Controls.Label {
+                text: "A small, native Markdown viewer and editor for Linux."
+                wrapMode: Text.WordWrap
+                horizontalAlignment: Text.AlignHCenter
+                Layout.fillWidth: true
+            }
+            Controls.Label {
+                text: "© 2026 Oton Mahnic · MIT License"
+                color: Kirigami.Theme.disabledTextColor
+                Layout.alignment: Qt.AlignHCenter
+            }
+            Controls.Label {
+                // Rich-text links ignore the palette; colour them via CSS so they read on dark themes.
+                text: "<style>a { color: " + Kirigami.Theme.linkColor + "; }</style>"
+                      + "<a href=\"https://github.com/otonm/markite\">github.com/otonm/markite</a>"
+                textFormat: Text.RichText
+                onLinkActivated: link => Qt.openUrlExternally(link)
+                Layout.alignment: Qt.AlignHCenter
+            }
+            Controls.Label {
+                text: "Built with Qt and KDE Frameworks"
+                color: Kirigami.Theme.disabledTextColor
+                Layout.alignment: Qt.AlignHCenter
+            }
+        }
+    }
+
     pageStack.initialPage: Kirigami.Page {
         id: mainPage
-        // Top-left: the three-dots menu and view buttons. Top-right: live word / character count.
-        title: doc.wordCount + (doc.wordCount === 1 ? " word" : " words")
-               + " / " + doc.charCount + (doc.charCount === 1 ? " character" : " characters")
+        // Top bar: the three-dots menu and view buttons. Path and statistics live in the status bar.
         padding: 0
 
-        // Editor theme: a family has a light and a dark Kate theme; the variant follows the system
-        // palette unless `appearance` forces one. Themed: editor, gutter, minimap and preview.
-        readonly property var themeFamilies: [
-            { name: "Breeze", light: "Breeze Light", dark: "Breeze Dark" },
-            { name: "Atom One", light: "Atom One Light", dark: "Atom One Dark" },
-            { name: "Catppuccin", light: "Catppuccin Latte", dark: "Catppuccin Mocha" },
-            { name: "GitHub", light: "GitHub Light", dark: "GitHub Dark" },
-            { name: "Solarized", light: "Solarized Light", dark: "Solarized Dark" }
-        ]
-        readonly property bool darkEditor: settings.appearance === "dark"
-            || (settings.appearance === "system" && Kirigami.Theme.textColor.hsvValue > 0.5)
-        readonly property string themeName: {
-            const family = themeFamilies.find(f => f.name === settings.editorTheme) || themeFamilies[0];
-            return darkEditor ? family.dark : family.light;
+        // Theme logic lives in EditorTheme.qml (unit-tested in kde/tests/qml); these forward to it.
+        readonly property string themeName: editorTheme.themeName
+        readonly property var themeColors: editorTheme.colors
+        readonly property string previewStyle: editorTheme.previewStyle
+        EditorTheme {
+            id: editorTheme
+            family: settings.editorTheme
+            appearance: settings.appearance
+            systemDark: Kirigami.Theme.textColor.hsvValue > 0.5
         }
-        readonly property var themeColors: themeData.themes[themeName]
-        // Qt rich text supports a CSS subset; this styles the HTML blocks of the preview.
-        readonly property string previewStyle: "<html><head><style>"
-            + "a { color: " + themeColors.link + "; }"
-            + "h1, h2, h3, h4, h5, h6 { color: " + themeColors.heading + "; }"
-            + "code, pre { color: " + themeColors.code + "; background-color: " + themeColors.codeBackground + "; }"
-            + "blockquote { color: " + themeColors.quote + "; }"
-            + "</style></head><body>"
 
         // Plain SVGs aren't recoloured by icon.color: use the white glyph on dark themes, black on light.
         readonly property string iconSuffix: Kirigami.Theme.textColor.hsvValue > 0.5 ? "-light" : ""
@@ -133,7 +198,7 @@ Kirigami.ApplicationWindow {
             icon.source: "qrc:/icons/view-code" + mainPage.iconSuffix + ".svg"; icon.color: Kirigami.Theme.textColor
             onTriggered: settings.viewMode = 0
             // Triggering the active mode again toggles it off; re-check it once Qt has finished toggling.
-            onCheckedChanged: if (!checked && settings.viewMode === 0) Qt.callLater(() => checked = true)
+            onCheckedChanged: if (!viewCodeAction.checked && settings.viewMode === 0) Qt.callLater(() => viewCodeAction.checked = true)
         }
         Controls.Action {
             id: viewPreviewAction
@@ -141,7 +206,7 @@ Kirigami.ApplicationWindow {
             icon.source: "qrc:/icons/view-preview" + mainPage.iconSuffix + ".svg"; icon.color: Kirigami.Theme.textColor
             onTriggered: settings.viewMode = 1
             // Triggering the active mode again toggles it off; re-check it once Qt has finished toggling.
-            onCheckedChanged: if (!checked && settings.viewMode === 1) Qt.callLater(() => checked = true)
+            onCheckedChanged: if (!viewPreviewAction.checked && settings.viewMode === 1) Qt.callLater(() => viewPreviewAction.checked = true)
         }
         Controls.Action {
             id: viewBothAction
@@ -149,7 +214,7 @@ Kirigami.ApplicationWindow {
             icon.source: "qrc:/icons/view-both" + mainPage.iconSuffix + ".svg"; icon.color: Kirigami.Theme.textColor
             onTriggered: settings.viewMode = 2
             // Triggering the active mode again toggles it off; re-check it once Qt has finished toggling.
-            onCheckedChanged: if (!checked && settings.viewMode === 2) Qt.callLater(() => checked = true)
+            onCheckedChanged: if (!viewBothAction.checked && settings.viewMode === 2) Qt.callLater(() => viewBothAction.checked = true)
         }
         Binding { target: viewCodeAction; property: "checked"; value: settings.viewMode === 0 }
         Binding { target: viewPreviewAction; property: "checked"; value: settings.viewMode === 1 }
@@ -159,19 +224,30 @@ Kirigami.ApplicationWindow {
             id: syncAction
             text: "Sync Scrolling"; icon.name: "link"; shortcut: "Ctrl+Shift+L"
             checkable: true; checked: settings.syncScroll
-            onToggled: { settings.syncScroll = checked; if (checked) sync.fromEditor() }
+            onToggled: { settings.syncScroll = syncAction.checked; if (syncAction.checked) sync.fromEditor() }
         }
         Controls.Action {
             id: wrapAction
             text: "Wrap Text"; icon.name: "text-wrap"
             checkable: true; checked: settings.wrapText
-            onToggled: settings.wrapText = checked
+            onToggled: settings.wrapText = wrapAction.checked
+        }
+        Controls.Action {
+            id: aboutAction
+            text: "About Markite"; icon.name: "help-about"
+            onTriggered: aboutDialog.open()
+        }
+        Controls.Action {
+            id: statusBarAction
+            text: "Show Status Bar"; icon.name: "view-statistics"
+            checkable: true; checked: settings.showStatusBar
+            onToggled: settings.showStatusBar = statusBarAction.checked
         }
         Controls.Action {
             id: minimapAction
             text: "Show Minimap"; icon.name: "view-list-details"
             checkable: true; checked: settings.showMinimap
-            onToggled: settings.showMinimap = checked
+            onToggled: settings.showMinimap = minimapAction.checked
         }
 
         Controls.Menu {
@@ -203,7 +279,9 @@ Kirigami.ApplicationWindow {
             Controls.MenuItem { action: syncAction }
             Controls.MenuItem { action: wrapAction }
             Controls.MenuItem { action: minimapAction }
+            Controls.MenuItem { action: statusBarAction }
             Controls.MenuSeparator {}
+            Controls.MenuItem { action: aboutAction }
             Controls.MenuItem { action: quitAction }
         }
 
@@ -217,13 +295,6 @@ Kirigami.ApplicationWindow {
                          showPreview: true; onClicked: settings.viewMode = 1 }
             ViewButton { active: settings.viewMode === 2; tip: "Code and preview (Ctrl+3)"
                          showCode: true; showPreview: true; onClicked: settings.viewMode = 2 }
-            Controls.Label {
-                text: mainPage.title
-                font.pointSize: Kirigami.Theme.defaultFont.pointSize * 0.8
-                horizontalAlignment: Text.AlignRight
-                rightPadding: Kirigami.Units.largeSpacing
-                Layout.fillWidth: true
-            }
         }
 
         // Editor <-> preview position sync. Core maps source lines to preview blocks

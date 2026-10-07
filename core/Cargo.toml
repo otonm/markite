@@ -1,6 +1,6 @@
 [package]
 name = "markite-core"
-version = "1.0.1"
+version = "1.0.2"
 edition = "2021"
 license = "MIT"
 
@@ -9,3 +9,6 @@ name = "markite_core"
 
 [dependencies]
 comrak = "0.54"
+# Pure-Rust regex engine (fancy-regex): onig needs a C library, which the static musl build lacks.
+syntect = { version = "5", default-features = false, features = ["default-syntaxes", "regex-fancy"] }
+two-face = { version = "0.5.2", default-features = false, features = ["syntect-default-fancy"] }
