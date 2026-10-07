@@ -82,7 +82,7 @@ static bool parse_url(const char *url, QUrl *out, char **err)
     return false;
 }
 
-extern "C" int markite_kio_read(const char *url, char **data, long long *len, char **err)
+extern "C" int markite_kio_read(const char *url, char **data, long long *len, long long max_len, char **err)
 {
     *data = nullptr;
     *len = 0;
@@ -93,7 +93,22 @@ extern "C" int markite_kio_read(const char *url, char **data, long long *len, ch
     }
     TRACE("read: storedGet %s", shown(target).constData());
     auto *job = KIO::storedGet(target);
+    // Stop the transfer as soon as the announced or received size passes the limit, instead of buffering it all.
+    bool tooBig = false;
+    auto check = [&](KJob *, qulonglong size) {
+        if (!tooBig && size > static_cast<qulonglong>(max_len)) {
+            tooBig = true;
+            TRACE("read: %llu bytes exceeds the limit, killing the job", size);
+            job->kill(KJob::EmitResult);
+        }
+    };
+    QObject::connect(job, &KJob::totalSize, job, check);
+    QObject::connect(job, &KJob::processedSize, job, check);
     if (int rc = finish(job, err); rc != 0) {
+        if (tooBig) {
+            std::free(*err);
+            return fail(err, "file is larger than the size limit");
+        }
         return rc;
     }
     const QByteArray bytes = job->data();

@@ -12,6 +12,9 @@ name = "markite_core"
 trace = []
 
 [dependencies]
+# Pure-Rust encoding conversion and statistical detection (no C library, so the static musl build still works).
+encoding_rs = "0.8"
+chardetng = "0.1"
 # No default features: they pull in the comrak CLI (clap, ...) and the onig C regex engine, which syntect would prefer
 # over the pure-Rust one below. Only the Markdown parser/renderer and its adapter traits are used.
 comrak = { version = "0.54", default-features = false }

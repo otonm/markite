@@ -9,6 +9,7 @@ use crate::kio;
 use cxx_qt::CxxQtType;
 use cxx_qt_lib::{QList, QString, QStringList};
 use markite_core::blocks::{self, Block};
+use markite_core::document::ExternalChange;
 use markite_core::location;
 
 #[cxx_qt::bridge]
@@ -32,6 +33,9 @@ mod ffi {
         #[qproperty(QStringList, blocks_html)]
         #[qproperty(QString, path)]
         #[qproperty(bool, dirty)]
+        /// Encoding and line ending of the file on disk, for the status bar.
+        #[qproperty(QString, encoding)]
+        #[qproperty(QString, line_ending)]
         #[qproperty(i32, word_count)]
         #[qproperty(i32, char_count)]
         type Document = super::DocumentRust;
@@ -42,8 +46,15 @@ mod ffi {
         /// Editor theme name (e.g. "Breeze Dark"); colours fenced code in the preview.
         #[qinvokable]
         fn set_syntax_theme(self: Pin<&mut Document>, theme: &QString);
+        /// Whether saving converts to UTF-8 / LF (true) or keeps the file's own encoding / line ending.
+        #[qinvokable]
+        fn set_conversion(self: Pin<&mut Document>, encoding: bool, line_endings: bool);
         #[qinvokable]
         fn open(self: Pin<&mut Document>, path: &QString);
+        /// Re-read the file from disk (local or remote). Returns true if the buffer was reloaded (QML must then
+        /// refresh the editor); emits `error` when the file changed but unsaved edits were kept.
+        #[qinvokable]
+        fn check_external(self: Pin<&mut Document>) -> bool;
         #[qinvokable]
         fn save(self: Pin<&mut Document>);
         #[qinvokable]
@@ -63,17 +74,37 @@ mod ffi {
     }
 }
 
-#[derive(Default)]
 pub struct DocumentRust {
     text: QString,
     blocks_html: QStringList,
     path: QString,
     dirty: bool,
+    encoding: QString,
+    line_ending: QString,
     word_count: i32,
     char_count: i32,
     inner: markite_core::Document,
     blocks: Vec<Block>,
     syntax_theme: String,
+}
+
+impl Default for DocumentRust {
+    fn default() -> Self {
+        let inner = markite_core::Document::default();
+        Self {
+            text: QString::default(),
+            blocks_html: QStringList::default(),
+            path: QString::default(),
+            dirty: false,
+            encoding: QString::from(&inner.encoding_label()),
+            line_ending: QString::from(inner.line_ending_label()),
+            word_count: 0,
+            char_count: 0,
+            inner,
+            blocks: Vec::new(),
+            syntax_theme: String::new(),
+        }
+    }
 }
 
 /// Saturating conversion for `Q_PROPERTY` counts: a document never realistically exceeds `i32::MAX` words.
@@ -82,8 +113,8 @@ fn to_i32(n: usize) -> i32 {
 }
 
 /// Writer for `Document::save_with`/`save_as_with` when the path is a remote URL.
-fn kio_write(path: &Path, text: &str) -> io::Result<()> {
-    kio::write(&path.to_string_lossy(), text)
+fn kio_write(path: &Path, data: &[u8]) -> io::Result<()> {
+    kio::write(&path.to_string_lossy(), data)
 }
 
 impl ffi::Document {
@@ -120,7 +151,7 @@ impl ffi::Document {
         markite_core::trace!(
             "bridge sync_from_core: copying text and path from core into the QObject properties"
         );
-        let (text, path) = {
+        let (text, path, encoding, line_ending) = {
             let d = &self.rust().inner;
             (
                 QString::from(d.text()),
@@ -129,10 +160,14 @@ impl ffi::Document {
                         .map(|p| p.to_string_lossy().into_owned())
                         .unwrap_or_default(),
                 ),
+                QString::from(&d.encoding_label()),
+                QString::from(d.line_ending_label()),
             )
         };
         self.as_mut().set_text(text);
         self.as_mut().set_path(path);
+        self.as_mut().set_encoding(encoding);
+        self.as_mut().set_line_ending(line_ending);
         self.rerender();
     }
 
@@ -168,16 +203,57 @@ impl ffi::Document {
         self.rerender();
     }
 
+    pub fn set_conversion(mut self: Pin<&mut Self>, encoding: bool, line_endings: bool) {
+        markite_core::trace!("set_conversion: encoding {encoding}, line endings {line_endings}");
+        let inner = &mut self.as_mut().rust_mut().inner;
+        inner.set_convert_encoding(encoding);
+        inner.set_convert_line_endings(line_endings);
+    }
+
     pub fn open(mut self: Pin<&mut Self>, path: &QString) {
         let p = location::resolve(&path.to_string()); // kio-fuse paths become their sftp:// URL
         markite_core::trace!("open: requested {}", location::redact(&p));
         // Remote URLs (sftp://, ...) go through KIO; local paths use core's std I/O.
         let r = if location::is_remote(&p) {
-            kio::read(&p).map(|text| self.as_mut().rust_mut().inner.load(&p, text))
+            kio::read(&p).map(|bytes| self.as_mut().rust_mut().inner.load(&p, &bytes))
         } else {
             markite_core::Document::open(&p).map(|d| self.as_mut().rust_mut().inner = d)
         };
         self.report(r);
+    }
+
+    pub fn check_external(mut self: Pin<&mut Self>) -> bool {
+        let Some(p) = self
+            .rust()
+            .inner
+            .path()
+            .map(|p| p.to_string_lossy().into_owned())
+        else {
+            return false;
+        };
+        // A read error (file briefly missing during an atomic save, network blip) is not worth a toast: retry next poll.
+        let disk = if location::is_remote(&p) {
+            kio::read(&p)
+        } else {
+            markite_core::document::read_limited(Path::new(&p))
+        };
+        let Ok(disk) = disk else {
+            markite_core::trace!("check_external: could not read {}", location::redact(&p));
+            return false;
+        };
+        match self.as_mut().rust_mut().inner.external_change(&disk) {
+            ExternalChange::Unchanged => false,
+            ExternalChange::Reloaded => {
+                self.sync_from_core();
+                true
+            }
+            ExternalChange::Conflict => {
+                self.error(QString::from(
+                    "File changed on disk; your unsaved edits were kept. Save to overwrite it.",
+                ));
+                false
+            }
+        }
     }
 
     pub fn save(mut self: Pin<&mut Self>) {

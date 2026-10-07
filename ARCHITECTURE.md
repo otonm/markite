@@ -23,7 +23,7 @@ property, iced message, ...).
 | `highlight` (syntect + two-face), `syntax_themes` | picks the theme name (`doc.setSyntaxTheme`); colours arrive inline in the block HTML |
 | `location::{resolve, is_remote}` (kio-fuse path -> `sftp://` URL) | routes remote URLs to the KIO shim  |
 | `minimap::lines` classification    | `Canvas` painting `doc.minimapRows()`           |
-| file I/O (`open/save/save_as`, `load`, `save_with`) | `FileDialog`, menu actions, shortcuts  |
+| file I/O (`open/save/save_as`, `load`, `save_with`; encoding and line-ending detection/conversion in `encoding.rs`) | `FileDialog`, menu actions, shortcuts  |
 | (remote I/O is not in core)       | `kde/src/kio.rs` + `kio_shim.cpp`: only the FFI to KIO (sftp:// and other URLs) |
 | `word_count`, `char_count`         | status bar (bottom right; the path is bottom left)                    |
 | (later) settings, search, outline  | (later) QML settings page, Kirigami sheets      |

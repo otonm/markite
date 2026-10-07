@@ -78,10 +78,16 @@ PNGs. Without a window manager, `xdotool key` shortcuts did not open dialogs; cl
 - Closing the app does not warn about unsaved changes.
 - `render.options()` sets `sourcepos = true`, so `data-sourcepos` attributes are emitted into the preview HTML, but the
   KDE frontend does not use them (block line ranges come from the parse tree).
-- Remote files are decoded as UTF-8 lossily, so a non-UTF-8 remote file is altered (and saved back altered).
+- Encoding detection is statistical for non-UTF-8, BOM-less files (chardetng) and can guess wrong; malformed bytes
+  become U+FFFD. A file mixing line endings is reported with its dominant one and saved with it (or with LF when
+  converting). UTF-16 without a BOM is not detected.
 - While a remote transfer runs, the shim's nested event loop also dispatches other app events (e.g. QML); the UI must
   not edit the document meanwhile.
 - `location::is_remote` treats any string containing `://` as a URL (so a local path like `/tmp/a://b` is misread), and
   the kio-fuse authority is copied into the URL without validation.
+- Files over 100 MB are refused (open and file watching), checked while reading so a growing file is never loaded whole;
+  a too-large change found by the watcher is skipped silently (trace only). Remote reads are cut off by size signals.
+- File watching polls (1.5 s local, 10 s remote) by re-reading the whole file, so a remote watch blocks in KIO's nested
+  event loop for each read, and changes are only noticed by content, not mtime. Only the open document is watched.
 - Minimap `indent` counts bytes while `len` counts chars, so a non-ASCII leading space overstates the indent.
 - The KIO include paths in `kde/build.rs` assume the Fedora layout.

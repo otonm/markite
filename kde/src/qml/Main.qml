@@ -58,7 +58,13 @@ Kirigami.ApplicationWindow {
         onError: message => showPassiveNotification(message)
         onBlocksHtmlChanged: Qt.callLater(sync.fromEditor)
         // Core colours fenced code with the editor theme's token colours; re-render on every theme change.
-        Component.onCompleted: setSyntaxTheme(mainPage.themeName)
+        Component.onCompleted: { setSyntaxTheme(mainPage.themeName); applyConversion() }
+        function applyConversion() { setConversion(settings.convertEncoding, settings.convertLineEndings) }
+    }
+    Connections {
+        target: settings
+        function onConvertEncodingChanged() { doc.applyConversion() }
+        function onConvertLineEndingsChanged() { doc.applyConversion() }
     }
     Connections { target: mainPage; function onThemeNameChanged() { doc.setSyntaxTheme(mainPage.themeName) } }
 
@@ -69,6 +75,9 @@ Kirigami.ApplicationWindow {
         property bool syncScroll: true
         property bool wrapText: false
         property bool showMinimap: true
+        property bool convertEncoding: true     // on save: write UTF-8 instead of the file's own encoding
+        property bool convertLineEndings: true  // on save: write \n instead of the file's own line endings
+        property bool watchFiles: true          // reload when the file changes on disk
         property bool showStatusBar: true
         property string editorTheme: "Breeze"   // theme family, see EditorTheme.qml
         property string appearance: "system"    // "system" | "light" | "dark": which variant of the family
@@ -85,6 +94,21 @@ Kirigami.ApplicationWindow {
         property alias y: root.y
         property alias width: root.width
         property alias height: root.height
+    }
+
+    // Remote files are re-read over KIO, so poll them less often.
+    Timer {
+        id: watchTimer
+        property bool busy: false   // a remote read runs a nested event loop that could fire this timer again
+        interval: doc.path.indexOf("://") >= 0 ? 10000 : 1500
+        repeat: true
+        running: settings.watchFiles && doc.path !== ""
+        onTriggered: {
+            if (busy) return;
+            busy = true;
+            if (doc.checkExternal()) { editor.text = doc.text; showPassiveNotification("File changed on disk: reloaded"); }
+            busy = false;
+        }
     }
 
     FileDialog {
@@ -121,6 +145,10 @@ Kirigami.ApplicationWindow {
             Controls.Label {
                 text: doc.wordCount + (doc.wordCount === 1 ? " word" : " words")
                       + " / " + doc.charCount + (doc.charCount === 1 ? " character" : " characters")
+                font.pointSize: statusBar.textSize
+            }
+            Controls.Label {
+                text: doc.encoding + " / " + doc.lineEnding
                 font.pointSize: statusBar.textSize
             }
         }
@@ -250,6 +278,24 @@ Kirigami.ApplicationWindow {
             onToggled: settings.showStatusBar = statusBarAction.checked
         }
         Controls.Action {
+            id: watchAction
+            text: "Monitor File Changes"; icon.name: "view-refresh"
+            checkable: true; checked: settings.watchFiles
+            onToggled: settings.watchFiles = watchAction.checked
+        }
+        Controls.Action {
+            id: convertEncodingAction
+            text: "Convert Encoding"; icon.name: "format-text-code"
+            checkable: true; checked: settings.convertEncoding
+            onToggled: settings.convertEncoding = convertEncodingAction.checked
+        }
+        Controls.Action {
+            id: convertEolAction
+            text: "Convert Line Endings"; icon.name: "format-justify-left"
+            checkable: true; checked: settings.convertLineEndings
+            onToggled: settings.convertLineEndings = convertEolAction.checked
+        }
+        Controls.Action {
             id: minimapAction
             text: "Show Minimap"; icon.name: "view-list-details"
             checkable: true; checked: settings.showMinimap
@@ -294,6 +340,9 @@ Kirigami.ApplicationWindow {
             Controls.MenuItem { action: wrapAction }
             Controls.MenuItem { action: minimapAction }
             Controls.MenuItem { action: statusBarAction }
+            Controls.MenuItem { action: watchAction }
+            Controls.MenuItem { action: convertEncodingAction }
+            Controls.MenuItem { action: convertEolAction }
             Controls.MenuSeparator {}
             Controls.MenuItem { action: aboutAction }
             Controls.MenuItem { action: quitAction }
