@@ -15,7 +15,8 @@ QtObject {
         { name: "GitHub", light: "GitHub Light", dark: "GitHub Dark" },
         { name: "Solarized", light: "Solarized Light", dark: "Solarized Dark" }
     ]
-    readonly property bool dark: appearance === "dark" || (appearance === "system" && systemDark)
+    // Anything but "light"/"dark" (e.g. a hand-edited rc file) follows the system, like "system".
+    readonly property bool dark: appearance === "dark" || (appearance !== "light" && systemDark)
     // Also the name core uses to colour fenced code (Document.setSyntaxTheme).
     readonly property string themeName: {
         const f = families.find(f => f.name === family) || families[0];

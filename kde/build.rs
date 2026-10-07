@@ -13,13 +13,15 @@ fn main() {
     .cpp_file("src/app_init.cpp")
     .cpp_file("src/kio_shim.cpp");
     let trace = std::env::var_os("CARGO_FEATURE_TRACE").is_some(); // `--features trace`
-    // KIO shim includes (Fedora layout; the build image installs kf6-kio-devel).
+                                                                   // KIO shim includes (Fedora layout; the build image installs kf6-kio-devel).
     let builder = unsafe {
         builder.cc_builder(move |cc| {
             if trace {
                 cc.define("MARKITE_TRACE", None);
             }
-            cc.include("/usr/include/KF6/KIOCore").include("/usr/include/KF6/KIO").include("/usr/include/KF6/KCoreAddons");
+            cc.include("/usr/include/KF6/KIOCore")
+                .include("/usr/include/KF6/KIO")
+                .include("/usr/include/KF6/KCoreAddons");
         })
     };
     builder.files(["src/document.rs"]).build();

@@ -76,7 +76,7 @@ cmake -B build --install-prefix ~/.local \
 Without installing anything on the host, the Docker scripts build everything in a Fedora image:
 
 ```sh
-./docker/build.sh                # core tests, KDE build, QML unit tests, headless smoke test -> builds/debug/
+./docker/build.sh                # fmt + clippy, core tests, KDE build, QML unit tests, smoke test -> builds/debug/
 ./docker/appimage.sh             # full AppImage -> builds/debug/markite-x86_64.AppImage
 ./docker/build_release.sh 1.0.3  # sets the version, builds the lean release AppImage -> builds/release/
 ```
@@ -95,9 +95,8 @@ will run it.
 ## Status
 
 The core has integration tests and the theme logic has QML unit tests; the rest of the UI has been tested by
-hand on KDE Plasma (Wayland) and under Xvfb. Known limits: with
-Wrap Text on, the minimap box and scroll sync drift on wrapped lines, and closing the app does not warn about
-unsaved changes.
+hand on KDE Plasma (Wayland) and under Xvfb. Known limits are listed in
+[BUGS_AND_FINDINGS.md](BUGS_AND_FINDINGS.md).
 
 ## License
 

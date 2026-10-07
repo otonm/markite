@@ -16,21 +16,27 @@ pub struct Line {
     pub kind: LineKind,
 }
 
+fn clamp_u16(n: usize) -> u16 {
+    u16::try_from(n).unwrap_or(u16::MAX)
+}
+
 pub fn lines(text: &str) -> Vec<Line> {
     crate::trace!("minimap::lines: classifying {} bytes", text.len());
     let mut in_fence = false;
     text.lines()
-        .enumerate()
-        .map(|(_n, raw)| {
+        .map(|raw| {
             let trimmed = raw.trim_start();
-            let indent = (raw.len() - trimmed.len()).min(u16::MAX as usize) as u16;
-            let len = trimmed.trim_end().chars().count().min(u16::MAX as usize) as u16;
-            if trimmed.starts_with("```") || trimmed.starts_with("~~~") {
+            // Known limitation: `indent` counts bytes but `len` counts chars, so a non-ASCII leading space overstates the indent.
+            let indent = clamp_u16(raw.len() - trimmed.len());
+            let len = clamp_u16(trimmed.trim_end().chars().count());
+            let kind = if trimmed.starts_with("```") || trimmed.starts_with("~~~") {
                 in_fence = !in_fence;
-                crate::trace!("minimap::lines: line {} {} a code fence", _n + 1, if in_fence { "opens" } else { "closes" });
-                return Line { indent, len, kind: LineKind::Code };
-            }
-            let kind = if in_fence {
+                crate::trace!(
+                    "minimap::lines: a code fence {}",
+                    if in_fence { "opens" } else { "closes" }
+                );
+                LineKind::Code
+            } else if in_fence {
                 LineKind::Code
             } else if len == 0 {
                 LineKind::Blank

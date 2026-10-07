@@ -20,6 +20,11 @@ TestCase {
         compare(theme({ family: "Catppuccin", appearance: "system", systemDark: true }).themeName, "Catppuccin Mocha");
     }
 
+    function test_unknown_appearance_follows_the_system() {
+        compare(theme({ family: "Breeze", appearance: "bogus", systemDark: true }).themeName, "Breeze Dark");
+        compare(theme({ family: "Breeze", appearance: "bogus", systemDark: false }).themeName, "Breeze Light");
+    }
+
     function test_unknown_family_falls_back_to_first() {
         compare(theme({ family: "nope", appearance: "light" }).themeName, "Breeze Light");
     }

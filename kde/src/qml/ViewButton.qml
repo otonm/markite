@@ -17,7 +17,7 @@ Controls.ToolButton {
     Controls.ToolTip.visible: hovered && !(iconName !== "" && active)
     Controls.ToolTip.delay: Kirigami.Units.toolTipDelay
 
-    // The desktop style doesn't mark checked tool buttons clearly; tint the active one.
+    // Tint the active mode; the desktop style doesn't mark it clearly.
     background: Rectangle {
         radius: 3
         color: btn.active ? Qt.alpha(Kirigami.Theme.textColor, 0.2)

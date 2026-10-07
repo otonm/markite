@@ -53,6 +53,24 @@ fn load_and_save_with_roundtrip() {
         Ok(())
     })
     .unwrap();
-    assert_eq!((path.as_str(), written.as_str()), ("sftp://h/p.md", "edited"));
+    assert_eq!(
+        (path.as_str(), written.as_str()),
+        ("sftp://h/p.md", "edited")
+    );
+    assert!(!doc.is_dirty());
+}
+
+#[test]
+fn save_as_with_changes_nothing_when_the_writer_fails() {
+    let mut doc = Document::default();
+    doc.load("sftp://h/a.md", "x");
+    doc.set_text("y");
+    assert!(doc
+        .save_as_with("sftp://h/b.md", |_, _| Err(std::io::Error::other("boom")))
+        .is_err());
+    assert_eq!(doc.path().unwrap().to_str(), Some("sftp://h/a.md"));
+    assert!(doc.is_dirty());
+    doc.save_as_with("sftp://h/b.md", |_, _| Ok(())).unwrap();
+    assert_eq!(doc.path().unwrap().to_str(), Some("sftp://h/b.md"));
     assert!(!doc.is_dirty());
 }

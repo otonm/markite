@@ -53,7 +53,6 @@ when you learn something that cost time. (Rules for working on the code live in 
 - Assigning `editor.text` programmatically (e.g. in `openFile`) still fires `onTextChanged`, so `update_text` runs with
   text core already holds. `Document::set_text` reports "unchanged" and the bridge skips the re-render.
 - Qt rich text ignores CSS classes, so preview code colours must be inline `style=` spans.
-- syntect picks the most specific matching scope selector; on an exact tie the earlier rule wins (it compares with `>`).
 
 ## Verifying UI changes
 
@@ -62,10 +61,27 @@ throwaway container with Xvfb + xdotool + ImageMagick, drive it, and screenshot.
 PNGs. Without a window manager, `xdotool key` shortcuts did not open dialogs; clicking the menu with `xdotool mousemove`
 + `click` did.
 
+## Dependencies and hardening
+
+- comrak's default features include its CLI (clap, ...) and `syntect-onig`. With the C `onig` regex engine enabled,
+  syntect prefers it over the pure-Rust one, so the "no C library" intent only holds with `default-features = false`.
+  Rendered HTML for a sample of languages and themes was byte-identical before and after the switch.
+- syntect picks the most specific matching scope selector; on an exact tie the earlier rule wins (it compares with `>`).
+- `QEventLoop::ExcludeUserInputEvents` must not be used in the KIO shim: KIO can show its own in-process dialogs
+  (e.g. host-key confirmation) during a transfer, and they would stop responding.
+- `QCoreApplication::quit()` (window closed) also ends the shim's nested event loop; the shim then kills the job and
+  reports "interrupted" instead of treating the empty result as success.
+
 ## Known limitations
 
 - With Wrap Text on, the minimap box and scroll sync drift on wrapped lines.
 - Closing the app does not warn about unsaved changes.
 - `render.options()` sets `sourcepos = true`, so `data-sourcepos` attributes are emitted into the preview HTML, but the
   KDE frontend does not use them (block line ranges come from the parse tree).
-- The five theme family names in the QML Theme menu are duplicated by hand from `EditorTheme.families`.
+- Remote files are decoded as UTF-8 lossily, so a non-UTF-8 remote file is altered (and saved back altered).
+- While a remote transfer runs, the shim's nested event loop also dispatches other app events (e.g. QML); the UI must
+  not edit the document meanwhile.
+- `location::is_remote` treats any string containing `://` as a URL (so a local path like `/tmp/a://b` is misread), and
+  the kio-fuse authority is copied into the URL without validation.
+- Minimap `indent` counts bytes while `len` counts chars, so a non-ASCII leading space overstates the indent.
+- The KIO include paths in `kde/build.rs` assume the Fedora layout.

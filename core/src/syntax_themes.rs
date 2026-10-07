@@ -11,6 +11,7 @@
 //   Solarized Light: 2011 Ethan Schoonover; 2012 Dominik Haumann <dhaumann@kde.org>; 2018 Andrew Crouthamel <andrew.crouthamel@kdemail.net>
 //   Solarized Dark: 2011 Ethan Schoonover; 2012 Dominik Haumann <dhaumann@kde.org>; 2018 Andrew Crouthamel <andrew.crouthamel@kdemail.net>
 pub(crate) type Rules = &'static [(&'static str, &'static str, &'static str)];
+#[rustfmt::skip] // keep the generator's layout: cargo fmt must not fight regeneration
 pub(crate) static THEMES: &[(&str, &str, Rules)] = &[
     ("Breeze Light", "#1f1c1b", &[
         ("keyword, storage, entity.name.tag", "#1f1c1b", "b"),

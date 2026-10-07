@@ -10,25 +10,23 @@
 # glibc: the AppImage needs the build distro's glibc or newer (Fedora 44 = 2.43). Fine for
 # Bazzite on F44; older distros need an image built on an older base.
 set -eu
-cd "$(dirname "$0")/.."
+. "$(dirname "$0")/common.sh"
 sudo docker build -q -t markite-build -f docker/Dockerfile.kde docker >/dev/null
 LEAN=${LEAN:-}; OUT=${OUT:-builds/debug/markite-x86_64.AppImage}
 mkdir -p "$(dirname "$OUT")"
-# Lean: size-optimised, stripped Rust binary in its own target dir (so normal builds keep their cache).
-if [ -n "$LEAN" ]; then
-  TD=/src/.docker-cache/target-fedora-lean
-  LEAN_ENV="-e CARGO_TARGET_DIR=$TD -e CARGO_PROFILE_RELEASE_STRIP=true -e CARGO_PROFILE_RELEASE_LTO=thin -e CARGO_PROFILE_RELEASE_CODEGEN_UNITS=1 -e CARGO_PROFILE_RELEASE_OPT_LEVEL=s"
-else
-  TD=/src/.docker-cache/target-fedora; LEAN_ENV=""
-fi
-sudo docker run --rm -v "$PWD":/src -w /src -e APPIMAGE_EXTRACT_AND_RUN=1 -e LEAN="$LEAN" -e OUT="$OUT" -e TD="$TD" $LEAN_ENV markite-build sh -eu -c '
-  # Debug AppImage: --features trace prints [trace ...] lines to stderr. Lean (release): no trace code at all.
-  if [ -n "$LEAN" ]; then F=""; else F="--features trace"; fi
-  cargo build --release -p markite-kde $F
+run -e APPIMAGE_EXTRACT_AND_RUN=1 -e LEAN="$LEAN" -e OUT="$OUT" markite-build sh -eu -c '
+  if [ -n "$LEAN" ]; then
+    # Lean: size-optimised, stripped Rust binary in its own target dir (so normal builds keep their cache); no trace code.
+    export CARGO_TARGET_DIR=/src/.docker-cache/target-fedora-lean CARGO_PROFILE_RELEASE_STRIP=true \
+           CARGO_PROFILE_RELEASE_LTO=thin CARGO_PROFILE_RELEASE_CODEGEN_UNITS=1 CARGO_PROFILE_RELEASE_OPT_LEVEL=s
+    cargo build --release -p markite-kde
+  else
+    cargo build --release -p markite-kde --features trace   # prints [trace ...] lines to stderr
+  fi
   C=.docker-cache; A=$C/appimage/AppDir; rm -rf "$C/appimage"; mkdir -p "$A/usr/bin" "$A/usr/lib"
   Q=/usr/lib64/qt6
 
-  cp "$TD/release/markite" "$A/usr/bin/"
+  cp "$CARGO_TARGET_DIR/release/markite" "$A/usr/bin/"
   cp -a $Q/qml "$A/usr/qml"
   mkdir -p "$A/usr/plugins"
   for d in $Q/plugins/*; do case ${d##*/} in designer|qmllint|qmlls|qmltooling|sqldrivers) ;; *) cp -a "$d" "$A/usr/plugins/";; esac; done
@@ -73,9 +71,13 @@ EOF
   mkdir -p "$A/usr/share/icons/hicolor/scalable/apps"; cp io.github.otonm.markite.svg "$A/usr/share/icons/hicolor/scalable/apps/"
   mkdir -p "$A/usr/share/metainfo"; cp io.github.otonm.markite.metainfo.xml "$A/usr/share/metainfo/"
 
-  T=$C/appimagetool-x86_64.AppImage
-  [ -x $T ] || { curl -sSL -o $T https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage; chmod +x $T; }
+  # Pinned release, verified by checksum (the tool is executed).
+  T=$C/appimagetool-1.9.1-x86_64.AppImage
+  if [ ! -x "$T" ]; then
+    curl -fsSL -o "$T.part" https://github.com/AppImage/appimagetool/releases/download/1.9.1/appimagetool-x86_64.AppImage
+    echo "ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384eb0  $T.part" | sha256sum -c - || { rm -f "$T.part"; exit 1; }
+    chmod +x "$T.part"; mv "$T.part" "$T"
+  fi
   ARCH=x86_64 $T --no-appstream "$A" "$OUT" >/dev/null
 '
-sudo chown -R "$(id -u):$(id -g)" builds .docker-cache
 ls -l "$OUT"

@@ -17,7 +17,10 @@ fn everything_else_is_untouched() {
     assert_eq!(resolve("/tmp/plain.md"), "/tmp/plain.md");
     assert_eq!(resolve("sftp://h/p.md"), "sftp://h/p.md");
     assert_eq!(resolve("/run/user/1000/doc.md"), "/run/user/1000/doc.md");
-    assert_eq!(resolve("/run/user/1000/kio-fuse-x/smb/h/p.md"), "/run/user/1000/kio-fuse-x/smb/h/p.md");
+    assert_eq!(
+        resolve("/run/user/1000/kio-fuse-x/smb/h/p.md"),
+        "/run/user/1000/kio-fuse-x/smb/h/p.md"
+    );
 }
 
 #[test]
@@ -25,4 +28,20 @@ fn remote_detection() {
     assert!(is_remote("sftp://host/p.md"));
     assert!(!is_remote("file:///p.md"));
     assert!(!is_remote("/p.md"));
+}
+
+#[test]
+fn passwords_are_redacted_for_logging() {
+    use markite_core::location::redact;
+    assert_eq!(
+        redact("sftp://oton:s3cret@host:22/a/b.md"),
+        "sftp://oton:***@host:22/a/b.md"
+    );
+    assert_eq!(redact("sftp://oton@host/a.md"), "sftp://oton@host/a.md");
+    assert_eq!(
+        redact("sftp://host/a:b@c.md"),
+        "sftp://host/a:b@c.md",
+        "an @ in the path is not userinfo"
+    );
+    assert_eq!(redact("/tmp/plain.md"), "/tmp/plain.md");
 }

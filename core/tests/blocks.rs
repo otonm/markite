@@ -24,3 +24,17 @@ fn line_block_mapping_roundtrips() {
     }
     assert_eq!(line_to_block(&[], 5.0), (0, 0.0));
 }
+
+#[test]
+fn non_finite_inputs_are_sanitised() {
+    let b = to_blocks(MD, "");
+    assert_eq!(line_to_block(&b, f64::NAN), (0, 0.0));
+    assert_eq!(line_to_block(&b, f64::INFINITY), (2, 1.0));
+    assert_eq!(line_to_block(&b, f64::NEG_INFINITY), (0, 0.0));
+    assert_eq!(block_to_line(&b, 1, f64::NAN), block_to_line(&b, 1, 0.0));
+    assert_eq!(
+        block_to_line(&b, 1, f64::INFINITY),
+        block_to_line(&b, 1, 1.0)
+    );
+    assert_eq!(block_to_line(&b, 99, 0.5), 1.0, "out-of-range block");
+}

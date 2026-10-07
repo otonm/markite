@@ -20,5 +20,7 @@ macro_rules! trace {
 #[cfg(not(feature = "trace"))]
 #[macro_export]
 macro_rules! trace {
-    ($($arg:tt)*) => { () };
+    ($($arg:tt)*) => {
+        ()
+    };
 }

@@ -14,9 +14,13 @@ extern "C" {
 const VERSION: &str = concat!(env!("CARGO_PKG_VERSION"), "\0");
 
 fn main() {
-    markite_core::trace!("main: Markite {} starting (trace build)", VERSION.trim_end_matches('\0'));
+    markite_core::trace!(
+        "main: Markite {} starting (trace build)",
+        VERSION.trim_end_matches('\0')
+    );
     let mut app = QApplication::new();
     QGuiApplication::set_desktop_file_name(&QString::from("io.github.otonm.markite"));
+    // SAFETY: `VERSION` is a NUL-terminated `'static` string (see its definition) that outlives the call.
     unsafe { markite_init_app(VERSION.as_ptr().cast()) };
     if env::var("QT_QUICK_CONTROLS_STYLE").is_err() {
         markite_core::trace!("main: QT_QUICK_CONTROLS_STYLE unset -> forcing org.kde.desktop");
@@ -28,7 +32,9 @@ fn main() {
     let mut engine = QQmlApplicationEngine::new();
     if let Some(engine) = engine.as_mut() {
         markite_core::trace!("main: loading Main.qml from the qrc");
-        engine.load(&QUrl::from("qrc:/qt/qml/io/github/otonm/markite/src/qml/Main.qml"));
+        engine.load(&QUrl::from(
+            "qrc:/qt/qml/io/github/otonm/markite/src/qml/Main.qml",
+        ));
     }
     if let Some(app) = app.as_mut() {
         markite_core::trace!("main: entering the Qt event loop");

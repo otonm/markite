@@ -9,7 +9,7 @@ import io.github.otonm.markite
 
 Kirigami.ApplicationWindow {
     id: root
-    property bool ready: false          // false while settings load: no transition animation at startup
+    property bool ready: false          // false until startup has finished: no transition animation while the window is set up
     property real bothWidth: -1         // editor width in "both" mode (remembered across mode switches)
     Component.onCompleted: {
         Qt.callLater(() => ready = true);
@@ -18,10 +18,16 @@ Kirigami.ApplicationWindow {
         if (file) openFile(file);
     }
 
-    // Accepts a plain path or a (percent-encoded) file:// URL.
+    // A (percent-encoded) file:// URL becomes a plain path; anything else is returned unchanged.
+    function toPath(location) {
+        const s = String(location);
+        if (!s.startsWith("file://")) return s;
+        try { return decodeURIComponent(s.slice(7)); } catch (e) { return s.slice(7); } // malformed %-escape: keep it literal
+    }
+
+    // Accepts a plain path or a file:// URL.
     function openFile(location) {
-        const path = String(location).startsWith("file://") ? decodeURIComponent(String(location).slice(7)) : String(location);
-        doc.open(path);
+        doc.open(toPath(location));
         editor.text = doc.text;
     }
     title: (doc.dirty ? "* " : "") + displayName(doc.path) + " — Markite"
@@ -67,6 +73,7 @@ Kirigami.ApplicationWindow {
         property string editorTheme: "Breeze"   // theme family, see EditorTheme.qml
         property string appearance: "system"    // "system" | "light" | "dark": which variant of the family
         property int viewMode: 2   // 0 code only, 1 preview only, 2 both; restored on next launch
+        Component.onCompleted: if (viewMode < 0 || viewMode > 2) viewMode = 2 // out-of-range value from a hand-edited rc file
         onViewModeChanged: { Qt.callLater(sync.fromEditor); split.switchTo(viewMode) }
     }
 
@@ -89,7 +96,7 @@ Kirigami.ApplicationWindow {
         id: saveDialog
         fileMode: FileDialog.SaveFile
         nameFilters: openDialog.nameFilters
-        onAccepted: doc.saveAs(decodeURIComponent(selectedFile.toString().replace("file://", "")))
+        onAccepted: doc.saveAs(toPath(selectedFile))
     }
 
     // Status bar: window-wide and independent of the view mode; just a little taller than its text.
@@ -164,7 +171,6 @@ Kirigami.ApplicationWindow {
 
     pageStack.initialPage: Kirigami.Page {
         id: mainPage
-        // Top bar: the three-dots menu and view buttons. Path and statistics live in the status bar.
         padding: 0
 
         // Theme logic lives in EditorTheme.qml (unit-tested in kde/tests/qml); these forward to it.
@@ -179,7 +185,7 @@ Kirigami.ApplicationWindow {
         }
 
         // Plain SVGs aren't recoloured by icon.color: use the white glyph on dark themes, black on light.
-        readonly property string iconSuffix: Kirigami.Theme.textColor.hsvValue > 0.5 ? "-light" : ""
+        readonly property string iconSuffix: editorTheme.systemDark ? "-light" : ""
 
         // Actions own the shortcuts and are shown in the menu below.
         Controls.Action { id: openAction; text: "Open…"; icon.name: "document-open"; shortcut: StandardKey.Open
@@ -264,13 +270,21 @@ Kirigami.ApplicationWindow {
                 Controls.MenuItem { action: viewBothAction }
             }
             Controls.Menu {
+                id: themeMenu
                 title: "Theme"
                 icon.name: "preferences-desktop-color"
-                ChoiceItem { text: "Breeze"; selected: settings.editorTheme === "Breeze"; onTriggered: settings.editorTheme = "Breeze" }
-                ChoiceItem { text: "Atom One"; selected: settings.editorTheme === "Atom One"; onTriggered: settings.editorTheme = "Atom One" }
-                ChoiceItem { text: "Catppuccin"; selected: settings.editorTheme === "Catppuccin"; onTriggered: settings.editorTheme = "Catppuccin" }
-                ChoiceItem { text: "GitHub"; selected: settings.editorTheme === "GitHub"; onTriggered: settings.editorTheme = "GitHub" }
-                ChoiceItem { text: "Solarized"; selected: settings.editorTheme === "Solarized"; onTriggered: settings.editorTheme = "Solarized" }
+                // One entry per theme family, inserted ahead of the separator (Menu has no model support of its own).
+                Instantiator {
+                    model: editorTheme.families
+                    delegate: ChoiceItem {
+                        required property var modelData
+                        text: modelData.name
+                        selected: settings.editorTheme === modelData.name
+                        onTriggered: settings.editorTheme = modelData.name
+                    }
+                    onObjectAdded: (index, object) => themeMenu.insertItem(index, object)
+                    onObjectRemoved: (index, object) => themeMenu.removeItem(object)
+                }
                 Controls.MenuSeparator {}
                 ChoiceItem { text: "Follow System"; selected: settings.appearance === "system"; onTriggered: settings.appearance = "system" }
                 ChoiceItem { text: "Always Light"; selected: settings.appearance === "light"; onTriggered: settings.appearance = "light" }
@@ -285,6 +299,7 @@ Kirigami.ApplicationWindow {
             Controls.MenuItem { action: quitAction }
         }
 
+        // Top bar (left-aligned): the three-dots menu and view buttons. Path and statistics live in the status bar.
         titleDelegate: RowLayout {
             spacing: Kirigami.Units.smallSpacing
             ViewButton { id: menuButton; iconName: "overflow-menu"; tip: "Menu"
@@ -302,42 +317,46 @@ Kirigami.ApplicationWindow {
         QtObject {
             id: sync
             property bool busy: false
-            readonly property var ed: scroll.contentItem
-            readonly property var pv: previewScroll.contentItem
+            readonly property Flickable ed: scroll.contentItem
+            readonly property Flickable pv: previewScroll.contentItem
 
             function atEnd(f) { return f.contentHeight > f.height && f.contentY >= f.contentHeight - f.height - 1 }
             function setY(f, y) { f.contentY = Math.max(0, Math.min(y, f.contentHeight - f.height)) }
 
-            function fromEditor() {
-                if (!settings.syncScroll || busy || blockRep.count === 0) return;
+            // One guarded sync step: skipped when sync is off, there is nothing to map, the line height is unknown
+            // or another step is running; `busy` is cleared even if `body` throws.
+            function guarded(body) {
+                if (!settings.syncScroll || busy || blockRep.count === 0 || !(editor.lineH > 0)) return;
                 busy = true;
-                blocksCol.forceLayout();
-                if (atEnd(ed)) {
-                    setY(pv, pv.contentHeight);
-                } else {
+                try { blocksCol.forceLayout(); body(); } finally { busy = false; }
+            }
+
+            function fromEditor() {
+                guarded(() => {
+                    if (atEnd(ed)) {
+                        setY(pv, pv.contentHeight);
+                        return;
+                    }
                     const line = Math.max(0, ed.contentY - editor.y - editor.firstLineY) / editor.lineH + 1;
                     const m = doc.lineToBlock(line);
                     const item = blockRep.itemAt(m[0]);
                     if (item) setY(pv, blocksCol.y + item.y + m[1] * item.height);
-                }
-                busy = false;
+                });
             }
 
             function fromPreview() {
-                if (!settings.syncScroll || busy || blockRep.count === 0) return;
-                busy = true;
-                blocksCol.forceLayout();
-                if (atEnd(pv)) {
-                    setY(ed, ed.contentHeight);
-                } else {
+                guarded(() => {
+                    if (atEnd(pv)) {
+                        setY(ed, ed.contentHeight);
+                        return;
+                    }
                     const y = pv.contentY - blocksCol.y;
                     let i = 0;
                     while (i < blockRep.count - 1 && blockRep.itemAt(i).y + blockRep.itemAt(i).height <= y) i++;
                     const item = blockRep.itemAt(i);
                     const frac = item.height > 0 ? Math.max(0, Math.min(1, (y - item.y) / item.height)) : 0;
                     setY(ed, editor.y + editor.firstLineY + (doc.blockToLine(i, frac) - 1) * editor.lineH);
-                }
-                busy = false;
+                });
             }
         }
         Connections { target: sync.ed; function onContentYChanged() { sync.fromEditor() } }
@@ -509,8 +528,10 @@ Kirigami.ApplicationWindow {
                         ctx.fillStyle = Qt.alpha(mainPage.themeColors.text, 0.2);
                         ctx.fillRect(0, f.contentY / editor.lineH * rowH, width, f.height / editor.lineH * rowH);
                     }
-                    MouseArea { anchors.fill: parent; onPressed: mouse => sync.setY(scroll.contentItem, mouse.y / minimap.rowH * editor.lineH)
-                                onPositionChanged: mouse => { if (pressed) sync.setY(scroll.contentItem, mouse.y / minimap.rowH * editor.lineH) } }
+                    // Scroll the editor so the clicked/dragged minimap row is at the top.
+                    function seek(y) { sync.setY(scroll.contentItem, y / rowH * editor.lineH) }
+                    MouseArea { anchors.fill: parent; onPressed: mouse => minimap.seek(mouse.y)
+                                onPositionChanged: mouse => { if (pressed) minimap.seek(mouse.y) } }
                 }
               }
             }

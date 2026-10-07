@@ -1,8 +1,8 @@
 [package]
 name = "markite-core"
-version = "1.0.2"
-edition = "2021"
-license = "MIT"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
 
 [lib]
 name = "markite_core"
@@ -12,7 +12,9 @@ name = "markite_core"
 trace = []
 
 [dependencies]
-comrak = "0.54"
-# Pure-Rust regex engine (fancy-regex): onig needs a C library, which the static musl build lacks.
+# No default features: they pull in the comrak CLI (clap, ...) and the onig C regex engine, which syntect would prefer
+# over the pure-Rust one below. Only the Markdown parser/renderer and its adapter traits are used.
+comrak = { version = "0.54", default-features = false }
+# Pure-Rust regex engine (fancy-regex), so the static musl build needs no C library.
 syntect = { version = "5", default-features = false, features = ["default-syntaxes", "regex-fancy"] }
 two-face = { version = "0.5.2", default-features = false, features = ["syntect-default-fancy"] }

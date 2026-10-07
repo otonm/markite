@@ -22,12 +22,20 @@ static SYNTAXES: LazyLock<SyntaxSet> = LazyLock::new(|| {
 });
 static BUILT: LazyLock<HashMap<&'static str, Theme>> = LazyLock::new(|| {
     crate::trace!("highlight: building {} syntect themes from the generated KDE colour tables (first use only)", THEMES.len());
-    THEMES.iter().map(|&(name, text, rules)| (name, build(text, rules))).collect()
+    THEMES
+        .iter()
+        .map(|&(name, text, rules)| (name, build(text, rules)))
+        .collect()
 });
 
 fn color(hex: &str) -> Color {
     let n = u32::from_str_radix(hex.trim_start_matches('#'), 16).unwrap_or(0);
-    Color { r: (n >> 16) as u8, g: (n >> 8) as u8, b: n as u8, a: 255 }
+    Color {
+        r: (n >> 16) as u8,
+        g: (n >> 8) as u8,
+        b: n as u8,
+        a: 255,
+    }
 }
 
 fn build(text: &str, rules: crate::syntax_themes::Rules) -> Theme {
@@ -59,40 +67,76 @@ pub(crate) struct Highlighter(&'static Theme);
 impl Highlighter {
     pub(crate) fn new(theme: &str) -> Option<Self> {
         let found = BUILT.get(theme).map(Self);
-        crate::trace!("Highlighter::new({theme:?}): {}", if found.is_some() { "known theme" } else { "unknown theme -> None, code stays plain" });
+        crate::trace!(
+            "Highlighter::new({theme:?}): {}",
+            if found.is_some() {
+                "known theme"
+            } else {
+                "unknown theme -> None, code stays plain"
+            }
+        );
         found
     }
 }
 
+/// Colours `code` with `hl`, or `None` if syntect fails on any line (the caller falls back to plain text).
+fn highlight(hl: &mut HighlightLines, code: &str) -> Option<String> {
+    let mut html = String::new();
+    for line in LinesWithEndings::from(code) {
+        let regions = hl.highlight_line(line, &SYNTAXES).ok()?;
+        append_highlighted_html_for_styled_line(&regions, IncludeBackground::No, &mut html).ok()?;
+    }
+    Some(html)
+}
+
 impl SyntaxHighlighterAdapter for Highlighter {
-    fn write_highlighted(&self, out: &mut dyn fmt::Write, lang: Option<&str>, code: &str) -> fmt::Result {
-        let token = lang.and_then(|l| l.split([',', ' ']).next()).unwrap_or("");
+    fn write_highlighted(
+        &self,
+        out: &mut dyn fmt::Write,
+        lang: Option<&str>,
+        code: &str,
+    ) -> fmt::Result {
+        // The info string is untrusted document text: it only selects a syntax, it is never logged or echoed.
+        // comrak already cut it at the first whitespace; `rust,ignore` style suffixes are cut here.
+        let token = lang.and_then(|l| l.split(',').next()).unwrap_or("");
         let syntax = SYNTAXES.find_syntax_by_token(token).unwrap_or_else(|| {
-            crate::trace!("write_highlighted: no syntax for {token:?}, using plain text");
+            crate::trace!("write_highlighted: unknown syntax, using plain text");
             SYNTAXES.find_syntax_plain_text()
         });
-        crate::trace!("write_highlighted: info {lang:?} -> token {token:?} -> syntax {:?}, {} bytes of code", syntax.name, code.len());
-        let mut hl = HighlightLines::new(syntax, self.0);
-        let mut html = String::new();
-        for line in LinesWithEndings::from(code) {
-            let ok = hl.highlight_line(line, &SYNTAXES).ok().map(|regions| {
-                append_highlighted_html_for_styled_line(&regions, IncludeBackground::No, &mut html)
-            });
-            if !matches!(ok, Some(Ok(()))) {
+        crate::trace!(
+            "write_highlighted: syntax {:?}, {} bytes of code",
+            syntax.name,
+            code.len()
+        );
+        match highlight(&mut HighlightLines::new(syntax, self.0), code) {
+            Some(html) => {
+                crate::trace!(
+                    "write_highlighted: produced {} bytes of coloured HTML",
+                    html.len()
+                );
+                out.write_str(&html)
+            }
+            None => {
                 crate::trace!("write_highlighted: syntect failed on a line, falling back to escaped plain text");
-                return comrak::html::escape(out, code); // fall back to plain text
+                comrak::html::escape(out, code)
             }
         }
-        crate::trace!("write_highlighted: produced {} bytes of coloured HTML", html.len());
-        out.write_str(&html)
     }
 
     // Qt rich text needs neither attributes nor classes; the block background comes from the preview CSS.
-    fn write_pre_tag(&self, out: &mut dyn fmt::Write, _: HashMap<&'static str, Cow<'_, str>>) -> fmt::Result {
+    fn write_pre_tag(
+        &self,
+        out: &mut dyn fmt::Write,
+        _: HashMap<&'static str, Cow<'_, str>>,
+    ) -> fmt::Result {
         out.write_str("<pre>")
     }
 
-    fn write_code_tag(&self, out: &mut dyn fmt::Write, _: HashMap<&'static str, Cow<'_, str>>) -> fmt::Result {
+    fn write_code_tag(
+        &self,
+        out: &mut dyn fmt::Write,
+        _: HashMap<&'static str, Cow<'_, str>>,
+    ) -> fmt::Result {
         out.write_str("<code>")
     }
 }

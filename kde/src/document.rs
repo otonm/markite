@@ -1,11 +1,13 @@
 //! The cxx-qt bridge between Qt and the core. It mirrors `markite_core::Document`
 //! into Q_PROPERTYs and forwards QML calls into it. No editor logic lives here.
 
+use std::io;
+use std::path::Path;
 use std::pin::Pin;
 
+use crate::kio;
 use cxx_qt::CxxQtType;
 use cxx_qt_lib::{QList, QString, QStringList};
-use crate::kio;
 use markite_core::blocks::{self, Block};
 use markite_core::location;
 
@@ -74,20 +76,39 @@ pub struct DocumentRust {
     syntax_theme: String,
 }
 
+/// Saturating conversion for `Q_PROPERTY` counts: a document never realistically exceeds `i32::MAX` words.
+fn to_i32(n: usize) -> i32 {
+    i32::try_from(n).unwrap_or(i32::MAX)
+}
+
+/// Writer for `Document::save_with`/`save_as_with` when the path is a remote URL.
+fn kio_write(path: &Path, text: &str) -> io::Result<()> {
+    kio::write(&path.to_string_lossy(), text)
+}
+
 impl ffi::Document {
     /// Re-render from core and publish `blocks_html` + `dirty`. Never touches `text`
     /// (echoing it back into the TextArea would reset the cursor).
     fn rerender(mut self: Pin<&mut Self>) {
-        markite_core::trace!("bridge rerender: asking core for blocks (theme {:?})", self.rust().syntax_theme);
-        let blocks = { let r = self.rust(); r.inner.render_blocks(&r.syntax_theme) };
+        markite_core::trace!(
+            "bridge rerender: asking core for blocks (theme {:?})",
+            self.rust().syntax_theme
+        );
+        let blocks = {
+            let r = self.rust();
+            r.inner.render_blocks(&r.syntax_theme)
+        };
         let mut html = QList::<QString>::default();
         for b in &blocks {
             html.append(QString::from(&b.html));
         }
         let dirty = self.rust().inner.is_dirty();
-        let words = self.rust().inner.word_count() as i32;
-        let chars = self.rust().inner.char_count() as i32;
-        markite_core::trace!("bridge rerender: publishing {} blocks, dirty={dirty}, {words} words, {chars} chars", blocks.len());
+        let words = to_i32(self.rust().inner.word_count());
+        let chars = to_i32(self.rust().inner.char_count());
+        markite_core::trace!(
+            "bridge rerender: publishing {} blocks, dirty={dirty}, {words} words, {chars} chars",
+            blocks.len()
+        );
         self.as_mut().rust_mut().blocks = blocks;
         self.as_mut().set_blocks_html(QStringList::from(&html));
         self.as_mut().set_dirty(dirty);
@@ -96,12 +117,18 @@ impl ffi::Document {
     }
 
     fn sync_from_core(mut self: Pin<&mut Self>) {
-        markite_core::trace!("bridge sync_from_core: copying text and path from core into the QObject properties");
+        markite_core::trace!(
+            "bridge sync_from_core: copying text and path from core into the QObject properties"
+        );
         let (text, path) = {
             let d = &self.rust().inner;
             (
                 QString::from(d.text()),
-                QString::from(&d.path().map(|p| p.to_string_lossy().into_owned()).unwrap_or_default()),
+                QString::from(
+                    &d.path()
+                        .map(|p| p.to_string_lossy().into_owned())
+                        .unwrap_or_default(),
+                ),
             )
         };
         self.as_mut().set_text(text);
@@ -109,22 +136,29 @@ impl ffi::Document {
         self.rerender();
     }
 
-    fn report<T>(mut self: Pin<&mut Self>, r: std::io::Result<T>) {
+    fn report<T>(mut self: Pin<&mut Self>, r: io::Result<T>) {
         match r {
             Ok(_) => self.sync_from_core(),
             Err(e) => {
-                markite_core::trace!("bridge report: operation failed, emitting error() toast: {e}");
+                markite_core::trace!(
+                    "bridge report: operation failed, emitting error() toast: {e}"
+                );
                 self.as_mut().error(QString::from(&e.to_string()))
             }
         }
     }
 
     pub fn update_text(mut self: Pin<&mut Self>, text: &QString) {
-        markite_core::trace!("update_text (QML onTextChanged): {} UTF-16 units", text.len());
+        markite_core::trace!(
+            "update_text (QML onTextChanged): {} UTF-16 units",
+            text.len()
+        );
         if self.as_mut().rust_mut().inner.set_text(text.to_string()) {
             self.rerender();
         } else {
-            markite_core::trace!("update_text: identical to core's text (echo after open/load), skipping re-render");
+            markite_core::trace!(
+                "update_text: identical to core's text (echo after open/load), skipping re-render"
+            );
         }
     }
 
@@ -135,47 +169,45 @@ impl ffi::Document {
     }
 
     pub fn open(mut self: Pin<&mut Self>, path: &QString) {
-        markite_core::trace!("open: requested {path}");
         let p = location::resolve(&path.to_string()); // kio-fuse paths become their sftp:// URL
+        markite_core::trace!("open: requested {}", location::redact(&p));
         // Remote URLs (sftp://, ...) go through KIO; local paths use core's std I/O.
         let r = if location::is_remote(&p) {
-            markite_core::trace!("open: remote -> KIO read, then core.load");
             kio::read(&p).map(|text| self.as_mut().rust_mut().inner.load(&p, text))
         } else {
-            markite_core::trace!("open: local -> core Document::open");
             markite_core::Document::open(&p).map(|d| self.as_mut().rust_mut().inner = d)
         };
         self.report(r);
     }
 
     pub fn save(mut self: Pin<&mut Self>) {
-        markite_core::trace!("save requested");
         let remote = self
             .rust()
             .inner
             .path()
-            .map(|p| location::is_remote(&p.to_string_lossy()))
-            .unwrap_or(false);
+            .is_some_and(|p| location::is_remote(&p.to_string_lossy()));
+        markite_core::trace!("save requested (remote: {remote})");
+        let inner = &mut self.as_mut().rust_mut().inner;
         let r = if remote {
-            markite_core::trace!("save: remote path -> core.save_with(KIO write)");
-            self.as_mut().rust_mut().inner.save_with(|p, t| kio::write(&p.to_string_lossy(), t))
+            inner.save_with(kio_write)
         } else {
-            markite_core::trace!("save: local path (or none) -> core.save");
-            self.as_mut().rust_mut().inner.save()
+            inner.save()
         };
         self.report(r);
     }
 
     pub fn save_as(mut self: Pin<&mut Self>, path: &QString) {
-        markite_core::trace!("save_as: requested {path}");
         let p = location::resolve(&path.to_string());
-        let r = if location::is_remote(&p) {
-            markite_core::trace!("save_as: remote -> KIO write, then core.load");
-            let text = self.rust().inner.text().to_string();
-            kio::write(&p, &text).map(|()| self.as_mut().rust_mut().inner.load(&p, text))
+        let remote = location::is_remote(&p);
+        markite_core::trace!(
+            "save_as: requested {} (remote: {remote})",
+            location::redact(&p)
+        );
+        let inner = &mut self.as_mut().rust_mut().inner;
+        let r = if remote {
+            inner.save_as_with(&p, kio_write)
         } else {
-            markite_core::trace!("save_as: local -> core.save_as");
-            self.as_mut().rust_mut().inner.save_as(&p)
+            inner.save_as(&p)
         };
         self.report(r);
     }
@@ -185,8 +217,8 @@ impl ffi::Document {
         markite_core::trace!("minimap_rows: QML Canvas asked for the code map");
         let mut out = QList::<i32>::default();
         for l in lines(self.rust().inner.text()) {
-            out.append(l.indent as i32);
-            out.append(l.len as i32);
+            out.append(i32::from(l.indent));
+            out.append(i32::from(l.len));
             out.append(match l.kind {
                 LineKind::Blank => 0,
                 LineKind::Heading => 1,
@@ -198,7 +230,9 @@ impl ffi::Document {
     }
 
     pub fn line_to_block(&self, line: f64) -> QList<f64> {
-        markite_core::trace!("line_to_block: editor line {line} -> preview block (scroll sync editor->preview)");
+        markite_core::trace!(
+            "line_to_block: editor line {line} -> preview block (scroll sync editor->preview)"
+        );
         let (i, f) = blocks::line_to_block(&self.rust().blocks, line);
         let mut out = QList::<f64>::default();
         out.append(i as f64);
@@ -208,6 +242,10 @@ impl ffi::Document {
 
     pub fn block_to_line(&self, index: i32, fraction: f64) -> f64 {
         markite_core::trace!("block_to_line: preview block {index} @ {fraction:.3} -> editor line (scroll sync preview->editor)");
-        blocks::block_to_line(&self.rust().blocks, index.max(0) as usize, fraction)
+        blocks::block_to_line(
+            &self.rust().blocks,
+            usize::try_from(index).unwrap_or(0),
+            fraction,
+        )
     }
 }

@@ -2,3 +2,8 @@
 resolver = "2"
 members = ["core", "kde"]
 default-members = ["core"]   # `cargo test` works without Qt installed
+
+[workspace.package]
+version = "1.0.3"   # set with docker/set_version.sh
+edition = "2021"
+license = "MIT"

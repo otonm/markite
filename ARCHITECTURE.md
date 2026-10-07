@@ -110,14 +110,16 @@ cargo test                       # core only; no Qt needed
 cargo run -p markite-kde        # needs Qt6, KF6 Kirigami, KSyntaxHighlighting, qqc2-desktop-style
 cmake -B build --install-prefix ~/.local && cmake --build build && cmake --install build
 ```
-Without a host toolchain: `./docker/build.sh` runs core tests as a static musl binary
-(`rust:alpine`), builds the KDE crate (`docker/Dockerfile.kde`), runs the QML unit tests, and smoke-runs the app
-headlessly (offscreen QPA). Dev outputs go to `builds/debug/`, releases to `builds/release/` (both gitignored).
+Without a host toolchain: `./docker/build.sh` checks formatting and lints (`cargo fmt`, `clippy -D warnings`), runs the core
+tests as a static musl binary (`rust:alpine`), builds the KDE crate (`docker/Dockerfile.kde`), runs the QML unit tests, and
+smoke-runs the app headlessly (offscreen QPA). Dev outputs go to `builds/debug/`, releases to `builds/release/`
+(both gitignored).
 
-`./docker/build_release.sh <version>` makes the release: it runs `docker/set_version.sh` (Cargo.toml x2, Cargo.lock,
-CMakeLists.txt, metainfo), builds a size-optimised, stripped Rust binary, prunes everything Markite never loads
-(GTK3 theme, thumbnail plugins, unused Controls styles, Qt5Compat, the Wayland compositor API, qmltypes; the list is
-the `LEAN` block in `docker/appimage.sh` and must be kept in step with new features), smoke-tests the AppImage, and
-writes `builds/release/markite-<version>-x86_64.AppImage` plus a `.sha256`.
+`./docker/build_release.sh <version>` makes the release: it runs `docker/set_version.sh` (the version lives in the
+workspace `Cargo.toml`, `Cargo.lock`, `CMakeLists.txt` and the metainfo), builds a size-optimised, stripped Rust binary,
+prunes everything Markite never loads (the list is the `LEAN` block in `docker/appimage.sh`), smoke-tests the AppImage,
+and writes `builds/release/markite-<version>-x86_64.AppImage` plus a `.sha256`.
 
-`./docker/appimage.sh` makes the full, unpruned `builds/debug/markite-x86_64.AppImage` (release build, bundles Qt 6.11, KF6 QML modules, qqc2-desktop-style and plasma-integration so it follows Plasma colours/icons/dialogs). Needs glibc >= the build image's (Fedora 44). Libraries are copied unmodified; linuxdeploy is not used because its patchelf corrupts Fedora 44's RELR relocations.
+`./docker/appimage.sh` makes the full, unpruned `builds/debug/markite-x86_64.AppImage` (release build with tracing, bundles
+Qt, KF6 QML modules, qqc2-desktop-style and plasma-integration so it follows Plasma colours/icons/dialogs). Needs glibc >= the
+build image's (Fedora 44). Libraries are copied unmodified; linuxdeploy is not used (see `BUGS_AND_FINDINGS.md`).

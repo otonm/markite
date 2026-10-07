@@ -1,15 +1,13 @@
 #!/bin/sh
 # Sets the project version everywhere it lives: ./docker/set_version.sh 1.0.3
-# (Cargo.toml x2, Cargo.lock, CMakeLists.txt, metainfo release entry). Idempotent.
+# (workspace Cargo.toml, Cargo.lock, CMakeLists.txt, metainfo release entry). Idempotent.
 # Add new places that carry the version here.
 set -eu
 cd "$(dirname "$0")/.."
 V=${1:?usage: set_version.sh <version>  e.g. 1.0.3}
 echo "$V" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' || { echo "version must look like 1.2.3" >&2; exit 1; }
 
-for f in core/Cargo.toml kde/Cargo.toml; do
-  sed -i '0,/^version = ".*"/s//version = "'"$V"'"/' "$f" # first match = [package] version
-done
+sed -i 's/^version = ".*"   # set with/version = "'"$V"'"   # set with/' Cargo.toml
 for p in markite-core markite-kde; do
   sed -i '/^name = "'"$p"'"$/{n;s/^version = ".*"/version = "'"$V"'"/}' Cargo.lock
 done
