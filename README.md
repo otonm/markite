@@ -29,10 +29,18 @@ and its preview.
   (the same colours as the editor), for the languages known to syntect and `two-face` (Rust and TOML are
   covered by tests). Unknown languages stay plain.
 - **Status bar** (can be switched off in the menu): full path of the open file on the left, word and character
-  count (characters without whitespace) on the right. The window title shows just the file name.
+  count (characters without whitespace) and the file's encoding and line ending (e.g. `UTF-8 / LF`) on the right.
+  The window title shows just the file name.
+- **Encoding and line endings**: detected when a file opens (BOM, UTF-8, otherwise a statistical guess for
+  legacy encodings such as Latin-1; LF, CRLF or CR). The menu options **Convert Encoding** and **Convert Line
+  Endings** (both on by default) make Save write UTF-8 and `\n`; switch them off to keep the file's own format.
+- **Monitor File Changes** (menu, on by default): the open file, local or remote, is re-read when it changes on
+  disk. A file without unsaved edits reloads automatically; with unsaved edits you get a warning and your text is
+  kept.
+- **File size limit**: files over 100 MB are not loaded, including a watched file that grows past that.
 - **Opens files from the command line**: `markite notes.md` (a plain path or a `file://` URL).
 - **Simple UI**: three-dots menu with Open, Save, Save As, View, Sync Scrolling, Wrap Text, Show Minimap,
-  Show Status Bar, About and Exit (`Ctrl+W`).
+  Show Status Bar, Monitor File Changes, Convert Encoding, Convert Line Endings, About and Exit (`Ctrl+W`).
 - Remembers window size and position, plus your view settings (stored in `~/.config/markiterc`).
 
 ## Installation
@@ -78,7 +86,7 @@ Without installing anything on the host, the Docker scripts build everything in 
 ```sh
 ./docker/build.sh                # fmt + clippy, core tests, KDE build, QML unit tests, smoke test -> builds/debug/
 ./docker/appimage.sh             # full AppImage -> builds/debug/markite-x86_64.AppImage
-./docker/build_release.sh 1.0.3  # sets the version, builds the lean release AppImage -> builds/release/
+./docker/build_release.sh 1.0.4  # sets the version, builds the lean release AppImage -> builds/release/
 ```
 
 The binary links Qt's private API, so it only runs against the Qt minor version it was built with. The
@@ -88,7 +96,7 @@ will run it.
 ## Project layout
 
 - `core/`: the Markdown logic in plain Rust with no GUI dependency (document, block splitting and code
-  highlighting for the preview, minimap data, counts, remote-path mapping), with integration tests in `core/tests/`.
+  highlighting for the preview, minimap data, counts, remote-path mapping, encoding and line-ending detection), with integration tests in `core/tests/`.
 - `kde/`: the Qt/Kirigami frontend: a thin cxx-qt bridge and the QML UI, with QML unit tests in `kde/tests/qml/`.
 - `docker/`: build, test and release scripts; `builds/` (gitignored) holds their output.
 

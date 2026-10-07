@@ -18,14 +18,14 @@ property, iced message, ...).
 
 | Core (toolkit-neutral)             | KDE frontend (Qt-specific)                      |
 |------------------------------------|-------------------------------------------------|
-| `Document` state, dirty tracking   | `Document` QObject: `text/blocksHtml/path/dirty/wordCount/charCount` |
+| `Document` state, dirty tracking   | `Document` QObject: `text/blocksHtml/path/dirty/encoding/lineEnding/wordCount/charCount` |
 | `blocks::to_blocks(md, theme)`, line<->block | preview: one `TextArea` per block, scroll sync  |
 | `highlight` (syntect + two-face), `syntax_themes` | picks the theme name (`doc.setSyntaxTheme`); colours arrive inline in the block HTML |
 | `location::{resolve, is_remote}` (kio-fuse path -> `sftp://` URL) | routes remote URLs to the KIO shim  |
 | `minimap::lines` classification    | `Canvas` painting `doc.minimapRows()`           |
 | file I/O (`open/save/save_as`, `load`, `save_with`; encoding and line-ending detection/conversion in `encoding.rs`) | `FileDialog`, menu actions, shortcuts  |
 | (remote I/O is not in core)       | `kde/src/kio.rs` + `kio_shim.cpp`: only the FFI to KIO (sftp:// and other URLs) |
-| `word_count`, `char_count`         | status bar (bottom right; the path is bottom left)                    |
+| `word_count`, `char_count`, format labels | status bar (bottom right; the path is bottom left)                    |
 | (later) settings, search, outline  | (later) QML settings page, Kirigami sheets      |
 
 UI-only state (view mode, wrap, minimap, sync, window geometry) lives in QML `Settings`
@@ -54,6 +54,16 @@ Remote files: Dolphin hands non-KIO apps a kio-fuse path, and kio-fuse writes ar
 passes Markite a real `sftp://…` URL; `kio_shim.cpp` (nested event loop over `KIO::storedGet/storedPut`)
 serves it, called from `kde/src/kio.rs`; the pure path mapping (`location::resolve`) lives in core. Local files keep core's plain `std::fs` I/O, and
 `Document::load`/`save_with` keep dirty tracking in core for both.
+
+Text format: the buffer is always `\n`-separated Unicode. `Document::load`/`open` decode the bytes (`encoding::decode`:
+BOM, valid UTF-8, else `chardetng`) and remember the on-disk `Format` (encoding, BOM, line ending); save encodes
+back (`encoding::encode`), to UTF-8/LF when the Convert Encoding / Convert Line Endings options are on, else in the
+file's own format. The bridge exposes `encoding`/`lineEnding` for the status bar and `setConversion` for the options.
+
+File monitoring: a QML `Timer` (1.5 s local, 10 s remote) calls `Document.checkExternal`, which re-reads the path
+(`read_limited` locally, `kio::read` remotely) and hands the bytes to `Document::external_change`: unchanged,
+reloaded (clean buffer) or conflict (unsaved edits kept, reported once). `MAX_FILE_BYTES` (100 MB) caps every read;
+the KIO shim aborts the transfer when the announced or received size exceeds it.
 
 The app icon is `io.github.otonm.markite.svg` (installed by CMake, copied into the AppImage, and bundled
 via `icons.qrc`). `kde/src/app_init.cpp` (one `extern "C"` call from `main.rs`) sets it as the window icon (and the app version),
