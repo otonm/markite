@@ -8,6 +8,10 @@ license = "MIT"
 name = "markite"
 path = "src/main.rs"
 
+[features]
+# Debug tracing to stderr: forwards core's `trace` feature and enables the C++ shim's traces (build.rs).
+trace = ["markite-core/trace"]
+
 [dependencies]
 markite-core = { path = "../core" }
 cxx = "1"

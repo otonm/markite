@@ -5,11 +5,13 @@ core/   markite-core   pure Rust, no toolkit deps, `cargo test` without Qt
 kde/    markite-kde    cxx-qt bridge (src/document.rs) + QML (src/qml/) + main.rs
 ```
 
+Known pitfalls, established facts and known limitations: `BUGS_AND_FINDINGS.md`.
+
 ## The boundary (the only rule that matters)
 
 `core` exposes plain Rust: structs, methods, `std` types, `io::Result`. It never
 imports a GUI crate, never spawns threads, and holds no mutable state (the one exception is
-`highlight.rs`: immutable `LazyLock` caches of the syntax set and built themes, since loading them is slow). A frontend is a
+`highlight.rs`: immutable `LazyLock` caches of the syntax set and built themes, built once and shared). A frontend is a
 *mirror*: it owns one `core::Document`, forwards user actions into it, and copies
 the resulting state out into whatever its toolkit wants (Q_PROPERTY, GObject
 property, iced message, ...).
@@ -78,10 +80,22 @@ If step 2 contains an `if` that is not type conversion, it belongs in step 1.
   logic goes to core. Beyond that, a headless smoke run only proves the QML loads; UI changes are checked by hand
   in Xvfb.
 
+## Debug tracing
+`markite_core::trace!("...")` (core/src/trace.rs) documents the code paths: opens/saves and which branch they take,
+path resolution, rendering, block mapping, highlighting, the bridge entry points and the KIO calls (the C++ shim has
+its own `TRACE` macro). With the `trace` cargo feature it prints `[trace <ms> <module>] message` to stderr; without
+it the macro expands to `()`, so calls and strings are absent from the binary. `kde`'s `trace` feature forwards core's
+and defines `MARKITE_TRACE` for the shim (build.rs). Debug builds (`build.sh`, `appimage.sh`) enable it; the lean
+release build (`build_release.sh`) does not and fails if trace strings appear in the binary. Never trace document
+text, only sizes and paths. Not traced: QML-only logic (it can't be stripped from the qrc); its calls into `Document`
+are traced on the Rust side.
+Run a debug AppImage from a terminal to see it. New code paths should get `trace!` lines.
+
 ## Why this shape (and not traits / plugins / message bus)
 - One concrete `Document` struct is enough. A `trait Frontend` with one implementation
   is a second frontend's problem; add it when that frontend exists.
-- Full-buffer `set_text` is fine for Markdown-sized files. Range edits can be added
+- Full-buffer `set_text` is fine for Markdown-sized files (it reports whether the text changed, so the bridge skips
+  re-rendering when QML only echoes back what `open` just loaded). Range edits can be added
   to `Document` later without changing the bridge's signature.
 - Threading is the frontend's job (cxx-qt `qt_thread`, GTK `glib::spawn`). Core stays
   synchronous so it can be driven from any event loop or from tests.

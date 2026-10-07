@@ -12,9 +12,11 @@ extern "C" {
     fn markite_kio_free(p: *mut c_char);
 }
 
-/// KIO wants full URLs; a bare path only reaches here in tests, so make it a file:// URL.
+/// KIO wants full URLs. Remote callers already pass one; a bare path (e.g. when exercising the shim
+/// against a local file) becomes a file:// URL.
 fn as_url(path: &str) -> CString {
     let url = if path.contains("://") { path.to_string() } else { format!("file://{path}") };
+    markite_core::trace!("kio::as_url: {path} -> {url}");
     CString::new(url).expect("path contains NUL")
 }
 
@@ -29,26 +31,32 @@ fn take_err(err: *mut c_char, url: &str) -> io::Error {
 }
 
 pub fn read(path: &str) -> io::Result<String> {
+    markite_core::trace!("kio::read: {path} (blocking KIO storedGet in the C++ shim)");
     let mut data: *mut c_char = ptr::null_mut();
     let mut len: c_longlong = 0;
     let mut err: *mut c_char = ptr::null_mut();
     let rc = unsafe { markite_kio_read(as_url(path).as_ptr(), &mut data, &mut len, &mut err) };
     if rc != 0 {
+        markite_core::trace!("kio::read: shim returned error code {rc}");
         return Err(take_err(err, path));
     }
     let bytes = unsafe { std::slice::from_raw_parts(data.cast::<u8>(), len.max(0) as usize) };
     let text = String::from_utf8_lossy(bytes).into_owned();
+    markite_core::trace!("kio::read: {} bytes received, decoded as UTF-8 (lossy)", bytes.len());
     unsafe { markite_kio_free(data) };
     Ok(text)
 }
 
 pub fn write(path: &str, text: &str) -> io::Result<()> {
+    markite_core::trace!("kio::write: {} bytes to {path} (KIO storedPut, overwrite)", text.len());
     let mut err: *mut c_char = ptr::null_mut();
     let rc = unsafe {
         markite_kio_write(as_url(path).as_ptr(), text.as_ptr().cast(), text.len() as c_longlong, &mut err)
     };
     if rc != 0 {
+        markite_core::trace!("kio::write: shim returned error code {rc}");
         return Err(take_err(err, path));
     }
+    markite_core::trace!("kio::write: ok");
     Ok(())
 }

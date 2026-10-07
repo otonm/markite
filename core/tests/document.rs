@@ -26,6 +26,19 @@ fn dirty_tracking_and_save_roundtrip() {
 }
 
 #[test]
+fn set_text_reports_whether_it_changed() {
+    let mut doc = Document::default();
+    assert!(!doc.set_text(""), "empty over empty is no change");
+    assert!(doc.set_text("a"));
+    assert!(!doc.set_text("a"));
+    assert!(doc.is_dirty());
+    doc.load("x.md", "b");
+    assert!(!doc.set_text("b"), "echo of loaded text");
+    assert!(!doc.is_dirty());
+    assert!(doc.set_text("c") && doc.is_dirty());
+}
+
+#[test]
 fn load_and_save_with_roundtrip() {
     let mut doc = Document::default();
     doc.load("sftp://h/p.md", "remote");

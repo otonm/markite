@@ -5,23 +5,40 @@
 /// (password stripped, decoded names — kiofusevfs.cpp `mapUrlToVfs`). Dolphin passes such a path
 /// whenever the app isn't registered for the scheme, so rebuild the URL and still use KIO.
 fn from_kio_fuse(path: &str) -> Option<String> {
-    let rest = path.strip_prefix("/run/user/")?;
-    let (uid, rest) = rest.split_once('/')?;
+    match parse_kio_fuse(path) {
+        Ok(url) => {
+            crate::trace!("from_kio_fuse: kio-fuse path -> {url}");
+            Some(url)
+        }
+        Err(_why) => {
+            crate::trace!("from_kio_fuse: not a usable kio-fuse path ({_why})");
+            None
+        }
+    }
+}
+
+fn parse_kio_fuse(path: &str) -> Result<String, &'static str> {
+    let rest = path.strip_prefix("/run/user/").ok_or("not under /run/user/")?;
+    let (uid, rest) = rest.split_once('/').ok_or("no uid segment")?;
     if uid.is_empty() || !uid.bytes().all(|b| b.is_ascii_digit()) {
-        return None;
+        return Err("uid is not numeric");
     }
-    let rest = rest.strip_prefix("kio-fuse-")?.split_once('/')?.1; // drop the mount id
-    let (scheme, rest) = rest.split_once('/')?;
+    let rest = rest
+        .strip_prefix("kio-fuse-")
+        .and_then(|r| r.split_once('/'))
+        .ok_or("no kio-fuse-<id> mount segment")?
+        .1; // drop the mount id
+    let (scheme, rest) = rest.split_once('/').ok_or("no scheme segment")?;
     if scheme != "sftp" {
-        return None; // only the sftp worker is bundled
+        return Err("scheme is not sftp: only the sftp worker is bundled");
     }
-    let (authority, tail) = rest.split_once('/')?;
+    let (authority, tail) = rest.split_once('/').ok_or("no authority/path")?;
     let mut url = format!("sftp://{authority}");
     for seg in tail.split('/') {
         url.push('/');
         url.push_str(&percent_encode(seg));
     }
-    Some(url)
+    Ok(url)
 }
 
 fn percent_encode(seg: &str) -> String {
@@ -41,13 +58,17 @@ fn percent_encode(seg: &str) -> String {
 /// Resolve any path the app receives: kio-fuse paths become their remote URL, everything else
 /// (local paths, already-schemed URLs) stays as-is.
 pub fn resolve(path: &str) -> String {
-    from_kio_fuse(path).unwrap_or_else(|| path.to_string())
+    let out = from_kio_fuse(path).unwrap_or_else(|| path.to_string());
+    crate::trace!("resolve: {path:?} -> {out:?}");
+    out
 }
 
 /// True for any URL with a non-`file` scheme; plain paths are local and use `core`'s std I/O.
 pub fn is_remote(path: &str) -> bool {
-    match path.find("://") {
+    let remote = match path.find("://") {
         Some(i) => !path[..i].eq_ignore_ascii_case("file"),
         None => false,
-    }
+    };
+    crate::trace!("is_remote: {path:?} -> {remote} ({})", if remote { "non-file scheme: goes through KIO" } else { "local path or file://: plain std I/O" });
+    remote
 }

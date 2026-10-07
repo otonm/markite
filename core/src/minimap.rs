@@ -17,14 +17,17 @@ pub struct Line {
 }
 
 pub fn lines(text: &str) -> Vec<Line> {
+    crate::trace!("minimap::lines: classifying {} bytes", text.len());
     let mut in_fence = false;
     text.lines()
-        .map(|raw| {
+        .enumerate()
+        .map(|(_n, raw)| {
             let trimmed = raw.trim_start();
             let indent = (raw.len() - trimmed.len()).min(u16::MAX as usize) as u16;
             let len = trimmed.trim_end().chars().count().min(u16::MAX as usize) as u16;
             if trimmed.starts_with("```") || trimmed.starts_with("~~~") {
                 in_fence = !in_fence;
+                crate::trace!("minimap::lines: line {} {} a code fence", _n + 1, if in_fence { "opens" } else { "closes" });
                 return Line { indent, len, kind: LineKind::Code };
             }
             let kind = if in_fence {

@@ -7,8 +7,8 @@ fn kio_fuse_paths_become_urls() {
         "sftp://oton@server:2222/docs/my%20notes.md"
     );
     assert_eq!(
-        resolve("/run/user/1000/kio-fuse-x/sftp/oton@server/AGENTS.md"),
-        "sftp://oton@server/AGENTS.md"
+        resolve("/run/user/1000/kio-fuse-x/sftp/oton@server/NOTES.md"),
+        "sftp://oton@server/NOTES.md"
     );
 }
 

@@ -462,12 +462,13 @@ Kirigami.ApplicationWindow {
                             selectionColor: mainPage.themeColors.selection
                             selectedTextColor: mainPage.themeColors.selectedText
                             // Measured line pitch and first-line offset (padding, document margin) for gutter, minimap and sync.
-                            // ponytail: lineH is one average pitch; minimap/sync drift under wrap (default off). Measure per-line if it matters.
+                            // Known limitation: lineH is one average pitch, so minimap and scroll sync drift when wrapping (off by default).
+                            // `length >= 0` is always true; it only makes the binding re-run when the text changes.
                             readonly property real firstLineY: length >= 0 ? positionToRectangle(0).y : 0
                             readonly property real lineH: lineCount > 1
                                 ? (positionToRectangle(length).y - firstLineY) / (lineCount - 1) : fm.lineSpacing
                             // Char offset of each line start, so the fixed gutter can place numbers per line.
-                            // Must be a binding on text: opening a file sets text programmatically without onTextChanged.
+                            // Derived from `text`, so it updates for typing and for programmatic loads (openFile) alike.
                             readonly property var lineStarts: {
                                 const o = [0];
                                 for (let i = 0; i < text.length; i++) if (text.charCodeAt(i) === 10) o.push(i + 1);
@@ -481,7 +482,7 @@ Kirigami.ApplicationWindow {
                 }
 
                 // Code map: paints one row per line from core's classification.
-                // ponytail: full repaint on every keystroke; cache rows per line if large files lag.
+                // Known limitation: repaints fully on every keystroke and scroll; large files may lag.
                 Canvas {
                     id: minimap
                     visible: settings.showMinimap
@@ -516,7 +517,7 @@ Kirigami.ApplicationWindow {
 
             // ---- preview ----
             // One item per top-level Markdown block so sync can measure where each landed.
-            // ponytail: Repeater rebuilds every block per keystroke; diff by index if long docs lag.
+            // Known limitation: the Repeater rebuilds every block whenever the preview changes; long documents may lag.
             Controls.ScrollView {
                 id: previewScroll
                 visible: settings.viewMode !== 0 || split.animating

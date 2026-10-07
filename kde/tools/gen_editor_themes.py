@@ -13,8 +13,8 @@ SLUGS = ["breeze-light", "breeze-dark", "atom-one-light", "atom-one-dark", "catp
          "github-light", "github-dark", "solarized-light", "solarized-dark"]
 URL = f"https://raw.githubusercontent.com/KDE/syntax-highlighting/{TAG}/data/themes/{{}}.theme"
 
-# KDE text style -> syntect scope selectors. General selectors first: a more specific one wins regardless
-# of order, and on a tie the later rule wins.
+# KDE text style -> syntect scope selectors. syntect scores each matching selector by how specific it is and
+# the most specific wins regardless of order (on an exact tie the earlier rule wins: syntect compares with `>`).
 SCOPES = [
     ("Keyword", "keyword, storage, entity.name.tag"),
     ("ControlFlow", "keyword.control"),

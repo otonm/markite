@@ -7,6 +7,10 @@ license = "MIT"
 [lib]
 name = "markite_core"
 
+[features]
+# Debug tracing to stderr (see src/trace.rs). Off in release builds: the trace! calls compile to nothing.
+trace = []
+
 [dependencies]
 comrak = "0.54"
 # Pure-Rust regex engine (fancy-regex): onig needs a C library, which the static musl build lacks.

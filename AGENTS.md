@@ -1,77 +1,50 @@
 # AGENTS.md
 
-**Markite**: native Linux Markdown editor in Rust.
+**Markite**: native Linux Markdown editor in Rust (`core/` pure logic, `kde/` Qt/Kirigami frontend).
+Design: `ARCHITECTURE.md`. Pitfalls and facts already established: `BUGS_AND_FINDINGS.md` (read it before touching
+build, KIO or QML code; add to it when you learn something that cost time).
 
-## Architecture (read ARCHITECTURE.md for detail)
+## Behaviour
 
-- `core/` (`markite-core`): pure Rust, no GUI deps. All logic lives here.
-- `kde/` (`markite-kde`): cxx-qt bridge (`kde/src/document.rs`) + Kirigami QML (`kde/src/qml/Main.qml`).
-- Rule: new feature = core method + test → one conversion-only `#[qinvokable]`/`#[qproperty]` in the bridge → bind in QML.
-  If the bridge needs an `if` that isn't type conversion, it belongs in core.
-- The frontend mirrors one `core::Document`; it never owns the source of truth.
-- Tests: core in `core/tests/*.rs` (one binary per file, public API only); QML logic in `kde/tests/qml/` (QtQuickTest,
-  run by `build.sh`). kde has no Rust tests (binary crate): put testable logic in core, extract testable QML into a
-  Kirigami-free component. Preview code colours come from `core/src/syntax_themes.rs`, generated together with
-  `EditorThemes.qml` by `kde/tools/gen_editor_themes.py`: re-run it when themes change, don't hand-edit.
+- State what was and wasn't tested. Don't present unsourced claims as fact; verify third-party behaviour
+  (read the source, run it) or leave it out.
+- When a fix or feature is done, build the debug AppImage (`./docker/appimage.sh`).
 
-## Build
+## Coding standards
 
-- No cargo/Qt on the host. Use `./docker/build.sh`: core tests as a static musl binary (`rust:alpine`),
-  KDE debug build + headless QML smoke test in the Fedora image (`docker/Dockerfile.kde`).
-- `./docker/appimage.sh` → full `builds/debug/markite-x86_64.AppImage`. Releases: see "Building" below.
-- Outputs go to `builds/debug/` (dev builds) and `builds/release/` (releases). Caches live in `.docker-cache/` (both gitignored).
-
-## Hard-won constraints
-
-- cxx-qt links Qt's **private API**: the binary only runs on the exact Qt minor it was built against.
-- Do **not** use linuxdeploy: its patchelf/strip corrupt Fedora 44's RELR relocations (segfaults).
-  `appimage.sh` copies libs unmodified and sets `LD_LIBRARY_PATH` in `AppRun`.
-- AppImage needs glibc ≥ the build image's (Fedora 44 = 2.43). It won't run on Ubuntu 24.04.
-- Qt 6.11's Wayland platform plugin is a single `libqwayland.so`.
-
-- kio-fuse writes (what a plain `open(O_TRUNC)` save does) fail with EIO/EPERM — remote URLs go through
-  the KIO shim instead. `libKF6CoreAddons.so` has no second K (`KF6CoreAddons`, not `KF6KCoreAddons`).
-- Remote KIO can't be e2e-tested in a plain container: every DBus-activated KDE daemon (kwalletd6,
-  kpasswdserver6) SIGABRTs there — even stock `kioexec` core-dumps on an sftp URL. Proven instead: the KIO
-  round-trip over `file://`, worker discovery/spawn for sftp, and unit tests for the path→URL mapping.
-- KF6 renamed kioslave→`kioworker` (`/usr/libexec/kf6/kioworker`, package `kf6-kio-core`, not `-libs`):
-  without it KIO discovers workers but jobs silently hang. The AppImage uses the host's kioworker plus its
-  bundled `kf6/kio/sftp.so` found via `QT_PLUGIN_PATH`.
-- Docker: keep the big dnf layer cacheable (new packages get their own `RUN`); a failed `--no-cache`
-  build eats disk — `docker builder prune --filter until=…` recovers it from the failed attempts.
-- `AGENTS.md` has twice turned up zero-filled (0 bytes, mtime 1970) — likely pool corruption under disk
-  pressure; if it's empty, restore from git and check what changed recently.
-
-## QML gotchas already hit
-
-- In `Controls.Action` handlers read the state via the action's id (`wrapAction.checked`): a bare `checked`
-  triggers a deprecated-parameter-injection warning, and a formal `checked =>` parameter receives the
-  signal's argument instead of the state (the setting then never flips).
-
-- SplitView: bind `SplitView.preferredWidth` (SplitView overwrites it on drag). Setting it in `Component.onCompleted` gives 0 width.
-- Content inside a ScrollView needs explicit `width/height: Math.max(scroll.available*, implicit*)` or it collapses.
-- Editor line metrics: use the measured `editor.lineH` / `editor.firstLineY` (via `positionToRectangle`) for gutter, minimap and sync.
-- Names declared on a nested object (e.g. a property on the `Kirigami.Page`) are NOT resolvable from its children unless the object has an `id`: reference it as `mainPage.prop`.
-- `TextEdit.lineCount` counts *visual* lines when wrapping; use source-line data (`editor.lineStarts`) for the gutter. `positionToRectangle()` is not reactive: bind on `contentHeight`/`width` too.
-- `icon.color` does not recolour plain SVGs: ship a white and a black variant and pick by `Kirigami.Theme.textColor.hsvValue`.
-- Kirigami's page toolbar is right-aligned; the left-hand toolbar lives in `titleDelegate`, and the menu is a plain `Controls.Menu` over shared `Controls.Action`s (they own the shortcuts).
-- The preview is one TextArea per top-level block (`doc.blocksHtml`). Scroll sync maps line ↔ block via core
-  (`doc.lineToBlock`, `doc.blockToLine`). Only user scrolling of the preview (hover/moving) drives the editor.
-
-## Verifying UI changes
-
-A headless smoke run (`QT_QPA_PLATFORM=offscreen`) only proves QML loads. For layout/behaviour, run the app in a throwaway container with Xvfb + xdotool + ImageMagick, drive it, and screenshot. Paste text via `xclip`, then inspect the PNGs.
+- All logic lives in `core` (pure Rust, no GUI deps). A feature is: core method + test, then one conversion-only
+  `#[qinvokable]`/`#[qproperty]` in `kde/src/document.rs`, then bind it in QML. If the bridge needs an `if` that isn't
+  type conversion, it belongs in core. The frontend mirrors one `core::Document`; it never owns the truth.
+- A core mutator a frontend may call redundantly reports whether it changed anything (`Document::set_text` returns
+  `bool`) so the bridge can skip work.
+- Tests: core in `core/tests/*.rs` (one binary per file, public API only); QML logic in `kde/tests/qml/` (QtQuickTest).
+  kde has no Rust tests (binary crate): put testable logic in core, or extract it into a Kirigami-free QML component.
+- Generated files (`core/src/syntax_themes.rs`, `kde/src/qml/EditorThemes.qml`): re-run
+  `kde/tools/gen_editor_themes.py`, never hand-edit.
+- Comments explain *why* and must stay true: when you change code, re-read nearby comments and fix or delete stale ones.
+- Comments, docs and commit messages must make sense to someone who has never seen the AI tooling used here: never
+  mention assistants, skills or prompts, or use their markers. Mark a deliberate shortcut with a plain
+  `Known limitation: <what, and when it matters>`. Don't reference `AGENTS.md` from code, scripts or user docs.
+- Tracing: add `markite_core::trace!(...)` lines for new code paths (branches, errors, FFI calls; C++ uses `TRACE`).
+  Never log document text. It prints only with the `trace` feature, which debug builds enable and release builds don't.
+- UI changes: the headless smoke test only proves the QML loads. Drive the app under Xvfb and look at screenshots
+  (recipe in `BUGS_AND_FINDINGS.md`).
 
 ## Building
 
-- Releases: `./docker/build_release.sh <version>` → lean `builds/release/markite-<version>-x86_64.AppImage` + `.sha256`
-  (first runs `docker/set_version.sh`: Cargo.toml x2, Cargo.lock, CMakeLists, metainfo; then size-optimised Rust binary, prunes unused plugins/QML/libs, smoke-tests it).
-  The prune list is the `LEAN` block in `docker/appimage.sh`. **Keep it updated**: a new feature that needs a plugin,
-  QML module or library must not be pruned (e.g. a thumbnail or GTK feature); a feature that makes one unnecessary
-  adds to the list. After editing it, launch the AppImage (Xvfb) and check preview, Open dialog, themes.
+No cargo/Qt on the host; everything runs in Docker. Outputs go to `builds/debug/` and `builds/release/`, caches to
+`.docker-cache/` (all gitignored). Never use linuxdeploy (it breaks the AppImage, see `BUGS_AND_FINDINGS.md`).
 
-When done with the implementation of a fix or a feature, always build an AppImage file in builds/debug.
+### Debug builds
 
-## Honesty
+- `./docker/build.sh`: core tests (static musl), KDE build with tracing, QML unit tests, headless smoke test.
+- `./docker/appimage.sh`: full, unpruned `builds/debug/markite-x86_64.AppImage` with all libraries and `[trace]` output.
 
-State what was and wasn't tested. Don't present unsourced claims as fact.
+### Releases
+
+- `./docker/build_release.sh <version>`: sets the version everywhere (`docker/set_version.sh`), builds the lean,
+  trace-free `builds/release/markite-<version>-x86_64.AppImage` + `.sha256`, and fails if trace code remains.
+- What the lean build prunes is the `LEAN` block in `docker/appimage.sh`. Keep it updated: a feature that needs a
+  pruned plugin, QML module or library must remove it from the list; one that makes something unnecessary adds to it.
+  After editing it, launch the AppImage under Xvfb and check the preview, Open dialog and themes.
+- Add any new place that carries the version to `docker/set_version.sh`.

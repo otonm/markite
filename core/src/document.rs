@@ -15,8 +15,12 @@ impl Document {
     /// Errors carry the path so the toast says which file and operation failed,
     /// not just "os error 5".
     pub fn open(path: impl AsRef<Path>) -> io::Result<Self> {
-        let text = fs::read_to_string(&path)
-            .map_err(|e| io::Error::new(e.kind(), format!("{}: {e}", path.as_ref().display())))?;
+        crate::trace!("open: reading {}", path.as_ref().display());
+        let text = fs::read_to_string(&path).map_err(|e| {
+            crate::trace!("open: failed ({:?}): {e}", e.kind());
+            io::Error::new(e.kind(), format!("{}: {e}", path.as_ref().display()))
+        })?;
+        crate::trace!("open: read {} bytes; saved_text = text (clean)", text.len());
         Ok(Self {
             saved_text: text.clone(),
             text,
@@ -38,49 +42,66 @@ impl Document {
 
     /// Replace the whole buffer. Fine for Markdown-sized files; a frontend with
     /// an incremental text model can switch to range edits later without
-    /// changing callers.
-    pub fn set_text(&mut self, text: impl Into<String>) {
-        self.text = text.into();
+    /// changing callers. Returns whether the text actually changed, so a frontend can skip
+    /// re-rendering when it only echoes back what core already holds (e.g. right after `open`).
+    pub fn set_text(&mut self, text: impl Into<String>) -> bool {
+        let text = text.into();
+        if text == self.text {
+            crate::trace!("set_text: {} bytes, unchanged", text.len());
+            return false;
+        }
+        self.text = text;
+        crate::trace!("set_text: {} bytes, dirty={}", self.text.len(), self.is_dirty());
+        true
     }
 
-    /// Load content the frontend already fetched (e.g. a remote file via KIO). The path is
-    /// kept as an opaque token for display and later saves; this crate never touches it itself.
+    /// Load content the frontend already fetched (e.g. a remote file via KIO). The path is kept
+    /// as a token for display and for `save_with`; `load` itself does no I/O. (`save`/`save_as`
+    /// would write to it with `std::fs`, so frontends use `save_with` for non-local paths.)
     pub fn load(&mut self, path: impl AsRef<Path>, text: impl Into<String>) {
         self.path = Some(path.as_ref().to_path_buf());
         self.text = text.into();
         self.saved_text = self.text.clone();
+        crate::trace!("load: {} bytes from frontend-provided path {} (clean)", self.text.len(), path.as_ref().display());
     }
 
     /// Save through a caller-supplied writer (frontend remote I/O); dirty tracking stays here.
     pub fn save_with(&mut self, write: impl FnOnce(&Path, &str) -> io::Result<()>) -> io::Result<()> {
-        let path = self
-            .path
-            .clone()
-            .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "document has no path"))?;
-        write(&path, &self.text)?;
+        let path = self.path.clone().ok_or_else(|| {
+            crate::trace!("save_with: no path, refusing");
+            io::Error::new(io::ErrorKind::NotFound, "document has no path")
+        })?;
+        crate::trace!("save_with: handing {} bytes for {} to the frontend writer", self.text.len(), path.display());
+        write(&path, &self.text).inspect_err(|_e| crate::trace!("save_with: writer failed: {_e}"))?;
         self.saved_text = self.text.clone();
+        crate::trace!("save_with: ok (clean)");
         Ok(())
     }
 
     pub fn save(&mut self) -> io::Result<()> {
-        let path = self
-            .path
-            .clone()
-            .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "document has no path"))?;
+        let path = self.path.clone().ok_or_else(|| {
+            crate::trace!("save: no path yet, caller must use save_as");
+            io::Error::new(io::ErrorKind::NotFound, "document has no path")
+        })?;
+        crate::trace!("save: writing to the existing path");
         self.save_as(path)
     }
 
     pub fn save_as(&mut self, path: impl AsRef<Path>) -> io::Result<()> {
-        fs::write(&path, &self.text)
-            .map_err(|e| io::Error::new(e.kind(), format!("{}: {e}", path.as_ref().display())))?;
+        crate::trace!("save_as: writing {} bytes to {}", self.text.len(), path.as_ref().display());
+        fs::write(&path, &self.text).map_err(|e| {
+            crate::trace!("save_as: failed ({:?}): {e}", e.kind());
+            io::Error::new(e.kind(), format!("{}: {e}", path.as_ref().display()))
+        })?;
         self.path = Some(path.as_ref().to_path_buf());
         self.saved_text = self.text.clone();
+        crate::trace!("save_as: ok, path updated (clean)");
         Ok(())
     }
 
     /// Whitespace-separated token count, shown as the live word count.
-    /// ponytail: counts Markdown syntax tokens (e.g. `#`, `-`) as words; refine if a
-    /// real prose count is wanted.
+    /// Known limitation: Markdown syntax tokens (e.g. `#`, `-`) count as words; a real prose
+    /// count would need to parse the Markdown.
     pub fn word_count(&self) -> usize {
         self.text.split_whitespace().count()
     }
@@ -91,6 +112,7 @@ impl Document {
     }
 
     pub fn render_blocks(&self, theme: &str) -> Vec<crate::blocks::Block> {
+        crate::trace!("render_blocks: {} bytes, theme {theme:?}", self.text.len());
         crate::blocks::to_blocks(&self.text, theme)
     }
 }

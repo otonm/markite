@@ -1,6 +1,6 @@
 #!/bin/sh
-# Release build + AppImage, all inside the Fedora image.
-#   ./docker/appimage.sh  -> builds/debug/markite-x86_64.AppImage
+# Builds the AppImage inside the Fedora image.
+#   ./docker/appimage.sh  -> builds/debug/markite-x86_64.AppImage (full, with [trace] output)
 #   LEAN=1 OUT=path ./docker/appimage.sh   -> pruned build (use docker/build_release.sh)
 #
 # Why not linuxdeploy: its bundled patchelf/strip predate RELR relocations, which Fedora 44
@@ -22,7 +22,9 @@ else
   TD=/src/.docker-cache/target-fedora; LEAN_ENV=""
 fi
 sudo docker run --rm -v "$PWD":/src -w /src -e APPIMAGE_EXTRACT_AND_RUN=1 -e LEAN="$LEAN" -e OUT="$OUT" -e TD="$TD" $LEAN_ENV markite-build sh -eu -c '
-  cargo build --release -p markite-kde
+  # Debug AppImage: --features trace prints [trace ...] lines to stderr. Lean (release): no trace code at all.
+  if [ -n "$LEAN" ]; then F=""; else F="--features trace"; fi
+  cargo build --release -p markite-kde $F
   C=.docker-cache; A=$C/appimage/AppDir; rm -rf "$C/appimage"; mkdir -p "$A/usr/bin" "$A/usr/lib"
   Q=/usr/lib64/qt6
 
@@ -36,7 +38,7 @@ sudo docker run --rm -v "$PWD":/src -w /src -e APPIMAGE_EXTRACT_AND_RUN=1 -e LEA
 
   if [ -n "$LEAN" ]; then
     # LEAN: drop what Markite never loads. Must run BEFORE the ldd scan below, so the libraries these
-    # pull in are not bundled either. Keep this list in step with new features (see AGENTS.md); after
+    # pull in are not bundled either. Keep this list in step with new features (see ARCHITECTURE.md, "Build"); after
     # changing it, launch the AppImage and check the preview, dialogs, themes and remote open still work.
     P=$A/usr/plugins; Y=$A/usr/qml
     rm -f  "$P/platformthemes/libqgtk3.so"                                  # GTK3 + pango/cairo/pixbuf/glycin
