@@ -38,11 +38,26 @@ Kirigami.ApplicationWindow {
     function fontAvailable(name) { return name !== "" && Qt.fontFamilies().indexOf(name) >= 0 }
     // The chosen family if it is installed or bundled, else `fallback` (the system font). Kerning and shaping
     // (ligatures, contextual alternates) are requested explicitly rather than left to defaults.
-    function fontFor(family, fallback) {
-        return fontAvailable(family)
-            ? Qt.font({ family: family, pointSize: fallback.pointSize, kerning: true, preferShaping: true })
-            : fallback
+    // `size` is the chosen point size; 0 (or an unusable saved value) keeps the fallback's size.
+    readonly property int minFontSize: 6
+    readonly property int maxFontSize: 40
+    function fontSize(size, fallback) {
+        return size > 0 ? Math.max(minFontSize, Math.min(maxFontSize, Math.round(size))) : Math.round(fallback.pointSize)
     }
+    function fontFor(family, fallback, size) {
+        if (!fontAvailable(family) && !(size > 0)) return fallback;
+        return Qt.font({ family: fontAvailable(family) ? family : fallback.family, pointSize: fontSize(size, fallback),
+                         kerning: true, preferShaping: true })
+    }
+
+    // Ranges of the Options sliders. Saved values are clamped on use, so a hand-edited rc file cannot break layout.
+    readonly property int minWrapColumn: 60
+    readonly property int maxWrapColumn: 200
+    readonly property int minPreviewWidth: 20
+    readonly property int maxPreviewWidth: 100
+    function clamp(value, lo, hi) { return Math.max(lo, Math.min(hi, value)) }
+    readonly property int wrapColumn: clamp(settings.wrapColumn, minWrapColumn, maxWrapColumn)
+    readonly property int previewWidth: clamp(settings.previewWidth, minPreviewWidth, maxPreviewWidth)
 
     // Combo-box entries for font groups ({title, families}): "System Default", then per group an optional
     // non-selectable heading and the families that are installed or bundled (a missing family would fall back to a
@@ -96,8 +111,12 @@ Kirigami.ApplicationWindow {
         property bool showMinimap: true
         property bool convertEncoding: true     // on save: write UTF-8 instead of the file's own encoding
         property bool convertLineEndings: true  // on save: write \n instead of the file's own line endings
-        property string previewFont: ""       // same, for the rendered preview
         property string codeFont: ""          // "" = system default monospace font, else a family name
+        property string previewFont: ""       // same, for the rendered preview
+        property int codeFontSize: 0          // points; 0 = the system default size
+        property int previewFontSize: 0
+        property int wrapColumn: 100          // characters; the editor wraps here when Wrap Text is on
+        property int previewWidth: 100        // max preview text width, % of the window
         property bool watchFiles: true          // reload when the file changes on disk
         property bool showStatusBar: true
         property string editorTheme: "Breeze"   // theme family, see EditorTheme.qml
@@ -193,6 +212,13 @@ Kirigami.ApplicationWindow {
         Shortcut { sequence: "Esc"; onActivated: close() }
     }
 
+    // A small, dimmed explanation line under an option.
+    component Hint: Controls.Label {
+        font.pointSize: Kirigami.Theme.defaultFont.pointSize * 0.85
+        opacity: 0.7
+    }
+    readonly property real hintIndent: Kirigami.Units.gridUnit * 2.2   // aligns controls under a CheckOption's label
+
     // A checkbox bound to a shared Action (which owns the setting and shortcut), laid out as checkbox, icon, a gap,
     // text, and a one-line explanation below. The stock CheckBox packs icon and text tightly and ignores `spacing`.
     component CheckOption: ColumnLayout {
@@ -219,11 +245,29 @@ Kirigami.ApplicationWindow {
                 TapHandler { onTapped: box.toggle() }
             }
         }
+        Hint { text: opt.hint; leftPadding: box.width + Kirigami.Units.gridUnit * 0.75 }
+    }
+
+    // An integer slider with a value label ("12 pt"); `value` is shown, `picked` reports a user change.
+    component ValueSlider: RowLayout {
+        id: vs
+        required property int value
+        required property int from
+        required property int to
+        property string unit
+        property alias sliderEnabled: slider.enabled
+        signal picked(int value)
+        Controls.Slider {
+            id: slider
+            from: vs.from; to: vs.to; stepSize: 1; snapMode: Controls.Slider.SnapAlways
+            Layout.preferredWidth: Kirigami.Units.gridUnit * 12
+            value: vs.value
+            onMoved: vs.picked(value)
+        }
         Controls.Label {
-            text: opt.hint
-            font.pointSize: Kirigami.Theme.defaultFont.pointSize * 0.85
-            opacity: 0.7
-            leftPadding: box.width + Kirigami.Units.gridUnit * 0.75
+            text: Math.round(slider.value) + vs.unit
+            enabled: slider.enabled
+            Layout.minimumWidth: Kirigami.Units.gridUnit * 3
         }
     }
 
@@ -268,10 +312,13 @@ Kirigami.ApplicationWindow {
             spacing: 0
             ColumnLayout {
                 Layout.fillHeight: true
-                Layout.preferredWidth: Kirigami.Units.gridUnit * 8
+                // Fixed width: exactly as wide as the longest page name, whatever the page content or window size.
+                Layout.preferredWidth: implicitWidth
+                Layout.minimumWidth: implicitWidth
+                Layout.maximumWidth: implicitWidth
                 spacing: 0
                 Repeater {
-                    model: ["Appearance", "Editor", "Files", "Interface"]
+                    model: ["Appearance", "Editor", "Preview", "Files", "Interface"]
                     Controls.ItemDelegate {
                         required property string modelData
                         required property int index
@@ -298,7 +345,6 @@ Kirigami.ApplicationWindow {
                         onActivated: index => settings.editorTheme = editorTheme.families[index].name
                     }
                     Controls.ComboBox {
-                        id: appearanceBox
                         Kirigami.FormData.label: "Variant:"
                         readonly property var values: ["system", "light", "dark"]
                         model: ["Follow System", "Always Light", "Always Dark"]
@@ -310,15 +356,53 @@ Kirigami.ApplicationWindow {
                         choices: root.codeFontChoices; current: settings.codeFont
                         onPicked: family => settings.codeFont = family
                     }
+                    ValueSlider {
+                        Kirigami.FormData.label: "Code font size:"
+                        from: root.minFontSize; to: root.maxFontSize; unit: " pt"
+                        value: root.fontSize(settings.codeFontSize, Kirigami.Theme.fixedWidthFont)
+                        onPicked: v => settings.codeFontSize = v
+                    }
                     FontCombo {
                         Kirigami.FormData.label: "Preview font:"
                         choices: root.previewFontChoices; current: settings.previewFont
                         onPicked: family => settings.previewFont = family
                     }
+                    ValueSlider {
+                        Kirigami.FormData.label: "Preview font size:"
+                        from: root.minFontSize; to: root.maxFontSize; unit: " pt"
+                        value: root.fontSize(settings.previewFontSize, Kirigami.Theme.defaultFont)
+                        onPicked: v => settings.previewFontSize = v
+                    }
                 }
                 ColumnLayout {
                     CheckOption { action: wrapAction; hint: "Wrap long lines in the editor" }
+                    ValueSlider {
+                        Layout.leftMargin: root.hintIndent
+                        from: root.minWrapColumn; to: root.maxWrapColumn; unit: " chars"
+                        sliderEnabled: settings.wrapText
+                        value: root.wrapColumn
+                        onPicked: v => settings.wrapColumn = v
+                    }
+                    Hint {
+                        text: "Wrap after this many characters, or at the window edge if that comes first"
+                        Layout.leftMargin: root.hintIndent
+                        Layout.bottomMargin: Kirigami.Units.largeSpacing
+                    }
                     CheckOption { action: syncAction; hint: "Editor and preview scroll together (Ctrl+Shift+L)" }
+                    Item { Layout.fillHeight: true }
+                }
+                ColumnLayout {
+                    Controls.Label { text: "Text width"; font.bold: true }
+                    ValueSlider {
+                        from: root.minPreviewWidth; to: root.maxPreviewWidth; unit: " %"
+                        value: root.previewWidth
+                        onPicked: v => settings.previewWidth = v
+                    }
+                    Hint {
+                        text: "Maximum width of the preview text as a share of the window. A narrower pane always fits, with no horizontal scrolling."
+                        wrapMode: Text.WordWrap
+                        Layout.fillWidth: true
+                    }
                     Item { Layout.fillHeight: true }
                 }
                 ColumnLayout {
@@ -386,8 +470,8 @@ Kirigami.ApplicationWindow {
 
         // Theme logic lives in EditorTheme.qml (unit-tested in kde/tests/qml); these forward to it.
         // The code font: the system monospace font, or the chosen family if it is installed or bundled.
-        readonly property font codeFont: root.fontFor(settings.codeFont, Kirigami.Theme.fixedWidthFont)
-        readonly property font previewFont: root.fontFor(settings.previewFont, Kirigami.Theme.defaultFont)
+        readonly property font codeFont: root.fontFor(settings.codeFont, Kirigami.Theme.fixedWidthFont, settings.codeFontSize)
+        readonly property font previewFont: root.fontFor(settings.previewFont, Kirigami.Theme.defaultFont, settings.previewFontSize)
         readonly property string themeName: editorTheme.themeName
         readonly property var themeColors: editorTheme.colors
         readonly property string previewStyle: editorTheme.previewStyle
@@ -687,6 +771,10 @@ Kirigami.ApplicationWindow {
                             id: editor
                             Layout.fillWidth: true
                             Layout.fillHeight: true
+                            // Wrap after `wrapColumn` characters (exact for a monospace font) when that is narrower than the pane.
+                            Layout.maximumWidth: settings.wrapText
+                                ? root.wrapColumn * fm.averageCharacterWidth + leftPadding + rightPadding
+                                : Number.POSITIVE_INFINITY
                             font: mainPage.codeFont
                             wrapMode: settings.wrapText ? TextEdit.Wrap : TextEdit.NoWrap
                             background: null
@@ -727,14 +815,24 @@ Kirigami.ApplicationWindow {
                     onPaint: {
                         const ctx = getContext("2d");
                         ctx.clearRect(0, 0, width, height);
-                        const rows = doc.minimapRows(); // [indent, len, kind] triples from core
+                        const rows = doc.minimapRows(); // [indent, len, kind, marker] quadruples from core
                         const t = mainPage.themeColors;
-                        const colors = [null, t.heading, t.code, Qt.alpha(t.text, 0.5)];
-                        for (let i = 0; i * 3 < rows.length && i * rowH < height; i++) {
-                            const indent = rows[i * 3], len = rows[i * 3 + 1], kind = rows[i * 3 + 2];
+                        // Same colours the editor's Markdown highlighting uses, by line kind (see EditorTheme.qml).
+                        const colors = [null, t.heading, t.code, t.text, t.listText, t.quote, t.table];
+                        for (let i = 0; i * 4 < rows.length && i * rowH < height; i++) {
+                            const indent = rows[i * 4], len = rows[i * 4 + 1], kind = rows[i * 4 + 2], marker = rows[i * 4 + 3];
                             if (kind === 0) continue;
+                            const y = i * rowH, h = rowH - 1;
+                            if (kind === 4 && marker > 0) {   // list marker, then the item text after a space
+                                ctx.fillStyle = t.listMarker;
+                                ctx.fillRect(indent, y, Math.min(marker, width - indent), h);
+                                const textX = indent + marker + 1;
+                                ctx.fillStyle = t.listText;
+                                if (textX < width) ctx.fillRect(textX, y, Math.max(0, Math.min(len - marker - 1, width - textX)), h);
+                                continue;
+                            }
                             ctx.fillStyle = colors[kind];
-                            ctx.fillRect(indent, i * rowH, Math.min(len, width), rowH - 1);
+                            ctx.fillRect(indent, y, Math.min(len, width), h);
                         }
                         // viewport
                         const f = scroll.contentItem;
@@ -766,7 +864,14 @@ Kirigami.ApplicationWindow {
                     // instead of reflowing into a squeezed column.
                     width: split.animating ? Math.max(previewScroll.availableWidth, split.width - editorRow.steadyWidth)
                                            : previewScroll.availableWidth
-                    padding: Kirigami.Units.largeSpacing
+                    // Text column: at most `previewWidth` % of the whole view, never wider than this pane (no horizontal
+                    // scrolling), centred.
+                    readonly property real textWidth: Math.max(0, Math.min(width - 2 * Kirigami.Units.largeSpacing,
+                        split.width * root.previewWidth / 100))
+                    leftPadding: (width - textWidth) / 2
+                    rightPadding: leftPadding
+                    topPadding: Kirigami.Units.largeSpacing
+                    bottomPadding: Kirigami.Units.largeSpacing
                     spacing: Kirigami.Units.smallSpacing
                     Repeater {
                         id: blockRep

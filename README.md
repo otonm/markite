@@ -45,7 +45,7 @@ and its preview.
 - **File size limit**: files over 100 MB are not loaded, including a watched file that grows past that.
 - **Opens files from the command line**: `markite notes.md` (a plain path or a `file://` URL).
 - **Simple UI**: three-dots menu with Open, Save, Save As, View, Options (`Ctrl+,`), About and Exit (`Ctrl+W`).
-  The Options dialog has Appearance (theme, variant, code and preview font), Editor (wrap text, sync scrolling),
+  The Options dialog has Appearance (theme, variant, code and preview font with a size slider each), Editor (wrap text with a wrap-column slider of 60–200 characters, sync scrolling), Preview (text width, 20–100% of the window),
   Files (monitor changes, convert encoding and line endings) and Interface (minimap, status bar) pages.
 - Remembers window size and position, plus your view settings (stored in `~/.config/markiterc`).
 
@@ -92,7 +92,7 @@ Without installing anything on the host, the Docker scripts build everything in 
 ```sh
 ./docker/build.sh                # fmt + clippy, core tests, KDE build, QML unit tests, smoke test -> builds/debug/
 ./docker/appimage.sh             # full AppImage -> builds/debug/markite-x86_64.AppImage
-./docker/build_release.sh 1.0.6  # sets the version, builds the lean release AppImage -> builds/release/
+./docker/build_release.sh 1.0.7  # sets the version, builds the lean release AppImage -> builds/release/
 ```
 
 The binary links Qt's private API, so it only runs against the Qt minor version it was built with. The

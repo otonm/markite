@@ -40,7 +40,7 @@ TestCase {
     // Every name a family can resolve to must have colours, or the UI breaks (and core finds no theme).
     function test_every_family_variant_has_colours() {
         const t = theme({});
-        const keys = ["background", "text", "selectedText", "selection", "lineNumber", "heading", "code", "link", "quote", "codeBackground"];
+        const keys = ["background", "text", "selectedText", "selection", "lineNumber", "heading", "code", "link", "quote", "listMarker", "listText", "table", "codeBackground"];
         t.families.forEach(f => [f.light, f.dark].forEach(n => {
             verify(t.data.themes[n] !== undefined, n + " missing from EditorThemes");
             keys.forEach(k => verify(/^#([0-9a-fA-F]{2})?[0-9a-fA-F]{6}$/ /* #RRGGBB or Qt #AARRGGBB */.test(t.data.themes[n][k]), n + "." + k));

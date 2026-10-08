@@ -24,6 +24,9 @@ QtObject {
                 "code": "#b08000",
                 "link": "#006e28",
                 "quote": "#0057ae",
+                "listMarker": "#ff5500",
+                "listText": "#1f1c1b",
+                "table": "#006e28",
                 "codeBackground": "#f8f7f6"
         },
         "Breeze Dark": {
@@ -36,6 +39,9 @@ QtObject {
                 "code": "#c45b00",
                 "link": "#27ae60",
                 "quote": "#2980b9",
+                "listMarker": "#da4453",
+                "listText": "#cfcfc2",
+                "table": "#27ae60",
                 "codeBackground": "#2A2E32"
         },
         "Atom One Light": {
@@ -44,10 +50,13 @@ QtObject {
                 "selectedText": "#383a42",
                 "selection": "#e5e5e6",
                 "lineNumber": "#9D9D9F",
-                "heading": "#4078f2",
-                "code": "#c45b00",
-                "link": "#27ae60",
+                "heading": "#e45649",
+                "code": "#d19a66",
+                "link": "#a626a4",
                 "quote": "#a626a4",
+                "listMarker": "#da4453",
+                "listText": "#383a42",
+                "table": "#a626a4",
                 "codeBackground": "#0C383A42"
         },
         "Atom One Dark": {
@@ -56,10 +65,13 @@ QtObject {
                 "selectedText": "#abb2bf",
                 "selection": "#363c4a",
                 "lineNumber": "#636D83",
-                "heading": "#61afef",
-                "code": "#c45b00",
-                "link": "#27ae60",
+                "heading": "#e06c75",
+                "code": "#d19a66",
+                "link": "#c678dd",
                 "quote": "#c678dd",
+                "listMarker": "#da4453",
+                "listText": "#abb2bf",
+                "table": "#c678dd",
                 "codeBackground": "#0A99BBFF"
         },
         "Catppuccin Latte": {
@@ -69,9 +81,12 @@ QtObject {
                 "selection": "#8cbcc0cc",
                 "lineNumber": "#6c6f85",
                 "heading": "#1e66f5",
-                "code": "#fe640b",
-                "link": "#fe640b",
-                "quote": "#7287fd",
+                "code": "#40a02b",
+                "link": "#dc8a78",
+                "quote": "#40a02b",
+                "listMarker": "#8839ef",
+                "listText": "#179299",
+                "table": "#ea76cb",
                 "codeBackground": "#ccd0da"
         },
         "Catppuccin Mocha": {
@@ -81,9 +96,12 @@ QtObject {
                 "selection": "#8c45475a",
                 "lineNumber": "#6c7086",
                 "heading": "#89b4fa",
-                "code": "#fab387",
-                "link": "#fab387",
-                "quote": "#b4befe",
+                "code": "#a6e3a1",
+                "link": "#f5e0dc",
+                "quote": "#a6e3a1",
+                "listMarker": "#cba6f7",
+                "listText": "#94e2d5",
+                "table": "#f5c2e7",
                 "codeBackground": "#66313244"
         },
         "GitHub Light": {
@@ -96,6 +114,9 @@ QtObject {
                 "code": "#6a737d",
                 "link": "#6f42c1",
                 "quote": "#d73a49",
+                "listMarker": "#032f62",
+                "listText": "#24292e",
+                "table": "#d73a49",
                 "codeBackground": "#f6f8fa"
         },
         "GitHub Dark": {
@@ -108,6 +129,9 @@ QtObject {
                 "code": "#6a737d",
                 "link": "#b392f0",
                 "quote": "#f97583",
+                "listMarker": "#9ecbff",
+                "listText": "#e1e4e8",
+                "table": "#f97583",
                 "codeBackground": "#2b3036"
         },
         "Solarized Light": {
@@ -120,6 +144,9 @@ QtObject {
                 "code": "#b58900",
                 "link": "#859900",
                 "quote": "#268bd2",
+                "listMarker": "#dc322f",
+                "listText": "#657b83",
+                "table": "#cb4b16",
                 "codeBackground": "#eee8d5"
         },
         "Solarized Dark": {
@@ -132,6 +159,9 @@ QtObject {
                 "code": "#b58900",
                 "link": "#859900",
                 "quote": "#268bd2",
+                "listMarker": "#dc322f",
+                "listText": "#839496",
+                "table": "#cb4b16",
                 "codeBackground": "#073642"
         }
     })

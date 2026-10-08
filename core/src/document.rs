@@ -57,6 +57,14 @@ pub fn too_large() -> io::Error {
 /// the limit, so a file that grows after a size check still can't be loaded whole.
 pub fn read_limited(path: &Path) -> io::Result<Vec<u8>> {
     use io::Read;
+    // Only regular files: opening a FIFO would block the caller (the UI thread) and a device could yield endless data.
+    if !fs::metadata(path).map_err(with_path(path))?.is_file() {
+        crate::trace!("read_limited: {} is not a regular file", path.display());
+        return Err(with_path(path)(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "not a regular file",
+        )));
+    }
     let mut buf = Vec::new();
     let n = fs::File::open(path)
         .and_then(|f| f.take(MAX_FILE_BYTES + 1).read_to_end(&mut buf))

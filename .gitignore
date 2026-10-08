@@ -3,3 +3,7 @@ target/
 build/
 builds/
 .qmlls.ini
+# Design exploration and local screenshots are not part of the app.
+.mockups/
+Screenshot*.png
+*.part

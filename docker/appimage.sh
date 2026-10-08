@@ -46,7 +46,7 @@ run -e APPIMAGE_EXTRACT_AND_RUN=1 -e LEAN="$LEAN" -e OUT="$OUT" markite-build sh
     done
     rm -rf "$Y/QtQuick/Controls/designer"
     rm -rf "$Y/Qt5Compat" "$Y/QtWayland"                                    # GraphicalEffects (ShaderTools, SPIRV) / Wayland compositor API
-    rm -rf "$Y/QtTest" "$Y/QtQuick/tooling"; find "$Y" -name "*.qmltypes" -delete
+    rm -rf "$Y/QtTest" "$Y/Qt/test" "$Y/QtQuick/tooling"; find "$Y" -name "*.qmltypes" -delete   # Qt/test: test-helper objects
   fi
 
   # Bundle every shared-lib dependency except the ones that must come from the host

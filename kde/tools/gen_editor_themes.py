@@ -2,7 +2,7 @@
 """Regenerate kde/src/qml/EditorThemes.qml and core/src/syntax_themes.rs from KDE's syntax-highlighting theme files.
 
 QML cannot read colours from a KSyntaxHighlighting theme (only its name), so the handful of colours the
-editor, minimap and preview need are copied here. The token colours for fenced code in the preview
+editor, minimap and preview need are copied here (including the Markdown `custom-styles` overrides the editor paints with). The token colours for fenced code in the preview
 (core/src/syntax_themes.rs) are the same files mapped onto TextMate scopes, so preview == editor. Keep TAG equal to the installed KF6 syntax-highlighting release.
     python3 kde/tools/gen_editor_themes.py
 """
@@ -51,17 +51,27 @@ for slug in SLUGS:
     with urllib.request.urlopen(URL.format(tag=TAG, slug=slug), timeout=30) as resp:
         d = json.load(resp)
     ts, ec, meta = d["text-styles"], d["editor-colors"], d["metadata"]
+    md = d.get("custom-styles", {}).get("Markdown", {})
     normal = ts["Normal"]["text-color"]
+
+    def md_color(item, style):
+        """The Markdown highlighter's colour for `item`: the theme's per-syntax override, else its default text style."""
+        return md.get(item, {}).get("text-color") or ts[style]["text-color"]
+
     themes[meta["name"]] = {
         "background": ec["BackgroundColor"],
         "text": normal,
         "selectedText": ts["Normal"]["selected-text-color"],
         "selection": ec["TextSelection"],
         "lineNumber": ec["LineNumbers"],
-        "heading": ts["Function"]["text-color"],   # Markdown headings use dsFunction
-        "code": ts["Information"]["text-color"],   # Markdown code / fenced code use dsInformation
-        "link": ts["Others"]["text-color"],        # Markdown auto-links use dsOthers
-        "quote": ts["Attribute"]["text-color"],    # Markdown blockquotes use dsAttribute
+        # Markdown colours as the editor paints them (markdown.xml item -> default style, then the theme's override).
+        "heading": md_color("Header H1", "Function"),
+        "code": md_color("Code", "Information"),
+        "link": md_color("Link", "Others"),
+        "quote": md_color("Blockquote: Normal Text", "Attribute"),
+        "listMarker": md_color("List", "SpecialString"),
+        "listText": md_color("List: Normal Text", "Normal"),
+        "table": md_color("Table", "Preprocessor"),
         "codeBackground": ec["CurrentLine"],       # subtle band, used behind code in the preview
     }
     rules = []

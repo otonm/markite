@@ -59,7 +59,8 @@ mod ffi {
         fn save(self: Pin<&mut Document>);
         #[qinvokable]
         fn save_as(self: Pin<&mut Document>, path: &QString);
-        /// Flat [indent, len, kind, ...] triples per line for the code map (kind: 0 blank, 1 heading, 2 code, 3 text).
+        /// Flat [indent, len, kind, marker, ...] quadruples per line for the code map (kind: 0 blank, 1 heading, 2 code,
+        /// 3 text, 4 list item, 5 quote, 6 table; marker: list marker length).
         #[qinvokable]
         fn minimap_rows(&self) -> QList_i32;
         /// Fractional 1-based source line -> [block index, fraction 0..1 through that block].
@@ -300,7 +301,11 @@ impl ffi::Document {
                 LineKind::Heading => 1,
                 LineKind::Code => 2,
                 LineKind::Text => 3,
+                LineKind::ListItem => 4,
+                LineKind::Quote => 5,
+                LineKind::Table => 6,
             });
+            out.append(i32::from(l.marker));
         }
         out
     }

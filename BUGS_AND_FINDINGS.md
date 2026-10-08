@@ -72,6 +72,15 @@ when you learn something that cost time. (Rules for working on the code live in 
   dialog's `CheckOption` lays out checkbox, icon and label itself (a `Binding` keeps the box in step with the action).
   A combo box cannot hold submenus: `FontCombo` fakes groups with disabled heading rows between separators.
 
+- The wrap column (Options > Editor) limits the editor's width to `column * averageCharacterWidth`, which is exact for
+  a monospace font and approximate for a proportional one. Preview text width is a share of the whole content area
+  (editor and preview together); the column is centred in the preview pane and shrinks with it.
+
+- KSyntaxHighlighting themes carry per-syntax overrides (`custom-styles`, e.g. Markdown list text, code, quotes) on top
+  of the generic `text-styles`; the editor paints with those, so `gen_editor_themes.py` reads the Markdown ones for the
+  minimap and preview colours. Reading only `text-styles` gave a minimap whose colours did not match the text.
+  The QML `Theme` type exposes no colours, so this cannot be queried at run time.
+
 ## Verifying UI changes
 
 A headless smoke run (`QT_QPA_PLATFORM=offscreen`) only proves the QML loads. For layout and behaviour, run the app in a

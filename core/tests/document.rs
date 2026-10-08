@@ -1,5 +1,6 @@
 use markite_core::Document;
 use std::fs;
+use std::path::Path;
 
 #[test]
 fn dirty_tracking_and_save_roundtrip() {
@@ -157,4 +158,19 @@ fn utf16_bom_roundtrip_and_unmappable_text() {
     d.set_text("emoji \u{1F600}");
     assert!(d.save_as_with("/y.md", |_, _| Ok(())).is_err());
     assert!(d.is_dirty());
+}
+
+#[test]
+fn read_limited_rejects_non_regular_files() {
+    let dir = std::env::temp_dir().join(format!("markite-nonreg-{}", std::process::id()));
+    fs::create_dir_all(&dir).unwrap();
+    assert!(
+        markite_core::document::read_limited(&dir).is_err(),
+        "a directory"
+    );
+    assert!(
+        markite_core::document::read_limited(Path::new("/dev/null")).is_err(),
+        "a device"
+    );
+    fs::remove_dir_all(dir).unwrap();
 }
