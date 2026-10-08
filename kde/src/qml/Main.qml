@@ -32,6 +32,18 @@ Kirigami.ApplicationWindow {
     }
     title: (doc.dirty ? "* " : "") + displayName(doc.path) + " — Markite"
 
+    readonly property var codeFonts: ["Fira Code", "JetBrains Mono", "Cascadia Code", "Monaspace Neon"]
+    readonly property var sansFonts: ["Inter", "Open Sans", "Roboto"]
+    readonly property var serifFonts: ["Merriweather", "Lora", "Source Serif 4"]
+    function fontAvailable(name) { return name !== "" && Qt.fontFamilies().indexOf(name) >= 0 }
+    // The chosen family if it is installed or bundled, else `fallback` (the system font). Kerning and shaping
+    // (ligatures, contextual alternates) are requested explicitly rather than left to defaults.
+    function fontFor(family, fallback) {
+        return fontAvailable(family)
+            ? Qt.font({ family: family, pointSize: fallback.pointSize, kerning: true, preferShaping: true })
+            : fallback
+    }
+
     // File name only (decoded for URLs); the status bar shows the full path.
     function displayName(path) {
         if (!path) return "Untitled";
@@ -42,6 +54,23 @@ Kirigami.ApplicationWindow {
     minimumHeight: Kirigami.Units.gridUnit * 20
     width: Kirigami.Units.gridUnit * 60
     height: Kirigami.Units.gridUnit * 35
+
+    // One radio entry per family that is installed or bundled, appended to `menu` (a Menu has no model support of
+    // its own; a missing family would fall back to a proportional font, so it is not offered).
+    component FontChoices: Instantiator {
+        id: choices
+        required property Controls.Menu menu
+        property string current: ""
+        signal picked(string family)
+        delegate: ChoiceItem {
+            required property string modelData
+            text: modelData
+            selected: choices.current === modelData
+            onTriggered: choices.picked(modelData)
+        }
+        onObjectAdded: (index, object) => menu.addItem(object)
+        onObjectRemoved: (index, object) => menu.removeItem(object)
+    }
 
     // Radio-style menu entry driven by `selected`; a click can never leave it out of step with the setting.
     component ChoiceItem: Controls.MenuItem {
@@ -77,6 +106,8 @@ Kirigami.ApplicationWindow {
         property bool showMinimap: true
         property bool convertEncoding: true     // on save: write UTF-8 instead of the file's own encoding
         property bool convertLineEndings: true  // on save: write \n instead of the file's own line endings
+        property string previewFont: ""       // same, for the rendered preview
+        property string codeFont: ""          // "" = system default monospace font, else a family name
         property bool watchFiles: true          // reload when the file changes on disk
         property bool showStatusBar: true
         property string editorTheme: "Breeze"   // theme family, see EditorTheme.qml
@@ -202,6 +233,9 @@ Kirigami.ApplicationWindow {
         padding: 0
 
         // Theme logic lives in EditorTheme.qml (unit-tested in kde/tests/qml); these forward to it.
+        // The code font: the system monospace font, or the chosen family if it is installed or bundled.
+        readonly property font codeFont: root.fontFor(settings.codeFont, Kirigami.Theme.fixedWidthFont)
+        readonly property font previewFont: root.fontFor(settings.previewFont, Kirigami.Theme.defaultFont)
         readonly property string themeName: editorTheme.themeName
         readonly property var themeColors: editorTheme.colors
         readonly property string previewStyle: editorTheme.previewStyle
@@ -335,6 +369,37 @@ Kirigami.ApplicationWindow {
                 ChoiceItem { text: "Follow System"; selected: settings.appearance === "system"; onTriggered: settings.appearance = "system" }
                 ChoiceItem { text: "Always Light"; selected: settings.appearance === "light"; onTriggered: settings.appearance = "light" }
                 ChoiceItem { text: "Always Dark"; selected: settings.appearance === "dark"; onTriggered: settings.appearance = "dark" }
+            }
+            Controls.Menu {
+                id: fontMenu
+                title: "Code Font"
+                icon.name: "preferences-desktop-font"
+                ChoiceItem { text: "System Default"; selected: !root.fontAvailable(settings.codeFont); onTriggered: settings.codeFont = "" }
+                FontChoices {
+                    model: root.codeFonts.filter(root.fontAvailable)
+                    menu: fontMenu; current: settings.codeFont; onPicked: family => settings.codeFont = family
+                }
+            }
+            Controls.Menu {
+                title: "Preview Font"
+                icon.name: "preferences-desktop-font"
+                ChoiceItem { text: "System Default"; selected: !root.fontAvailable(settings.previewFont); onTriggered: settings.previewFont = "" }
+                Controls.Menu {
+                    id: sansMenu
+                    title: "Sans Serif"
+                    FontChoices {
+                        model: root.sansFonts.filter(root.fontAvailable)
+                        menu: sansMenu; current: settings.previewFont; onPicked: family => settings.previewFont = family
+                    }
+                }
+                Controls.Menu {
+                    id: serifMenu
+                    title: "Serif"
+                    FontChoices {
+                        model: root.serifFonts.filter(root.fontAvailable)
+                        menu: serifMenu; current: settings.previewFont; onPicked: family => settings.previewFont = family
+                    }
+                }
             }
             Controls.MenuItem { action: syncAction }
             Controls.MenuItem { action: wrapAction }
@@ -523,7 +588,7 @@ Kirigami.ApplicationWindow {
                             id: editor
                             Layout.fillWidth: true
                             Layout.fillHeight: true
-                            font: Kirigami.Theme.fixedWidthFont
+                            font: mainPage.codeFont
                             wrapMode: settings.wrapText ? TextEdit.Wrap : TextEdit.NoWrap
                             background: null
                             color: mainPage.themeColors.text
@@ -616,6 +681,7 @@ Kirigami.ApplicationWindow {
                             color: mainPage.themeColors.text
                             selectionColor: mainPage.themeColors.selection
                             selectedTextColor: mainPage.themeColors.selectedText
+                            font: mainPage.previewFont
                             wrapMode: TextEdit.Wrap
                             background: null
                             padding: 0

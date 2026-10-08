@@ -209,6 +209,22 @@ Trailing whitespace and tabs:
 	indented with a tab
     indented with four spaces (this becomes a code block)
 
+## Ligatures (Code Font menu)
+
+Switch the code font to Fira Code, JetBrains Mono, Cascadia Code or Monaspace Neon: the operators below should
+join into single glyphs in the editor. The look-alike line checks that `0`/`O` and `1`/`l`/`I` stay distinct.
+
+```
+=> -> <- != == === !== >= <= <> :: ++ -- && || |> <| <$> >>= =<< ... .. /* */ // ## www
+```
+
+```rust
+fn demo(a: i32, b: i32) -> bool { a >= b && a != 0 || matches!(a, 1..=9) }
+let f = |x| x |> g;   // pipe, arrow and range: => -> ..=
+```
+
+Look-alikes: 0O 1lI| {}() []<> "'` ,.;:
+
 ## Long filler section for scroll testing
 
 Paragraph 1 — lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.

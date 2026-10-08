@@ -60,6 +60,15 @@ BOM, valid UTF-8, else `chardetng`) and remember the on-disk `Format` (encoding,
 back (`encoding::encode`), to UTF-8/LF when the Convert Encoding / Convert Line Endings options are on, else in the
 file's own format. The bridge exposes `encoding`/`lineEnding` for the status bar and `setConversion` for the options.
 
+Code font: the `codeFont` setting ("" = system monospace) feeds `mainPage.codeFont`, used by the editor and gutter. The
+menu lists only families `Qt.fontFamilies()` reports. `docker/appimage.sh` puts Regular/Bold/Italic/BoldItalic of the four
+fonts in `usr/share/markite/fonts` (Fira Code, JetBrains Mono and Cascadia Code from Fedora packages, Monaspace Neon from
+a checksum-pinned release zip) plus their licences from `kde/fonts/`; `app_init.cpp` registers that directory at startup.
+
+Preview font: same mechanism (`previewFont` setting, `mainPage.previewFont`, applied to every preview block). `fontFor`
+builds the font with kerning and shaping requested explicitly; the `FontChoices` component fills the menus. Lora and Source
+Serif 4 are checksum-pinned downloads in `docker/appimage.sh` (not packaged in Fedora); the others are Fedora packages.
+
 File monitoring: a QML `Timer` (1.5 s local, 10 s remote) calls `Document.checkExternal`, which re-reads the path
 (`read_limited` locally, `kio::read` remotely) and hands the bytes to `Document::external_change`: unchanged,
 reloaded (clean buffer) or conflict (unsaved edits kept, reported once). `MAX_FILE_BYTES` (100 MB) caps every read;

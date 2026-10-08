@@ -10,16 +10,9 @@
 #include <QUrl>
 #include <KJob>
 #include <kio/storedtransferjob.h>
-#include <cstdio>
+#include "trace.h"
 #include <cstdlib>
 #include <cstring>
-
-// Debug traces: compiled in only with `--features trace` (build.rs defines MARKITE_TRACE); absent from release builds.
-#ifdef MARKITE_TRACE
-#define TRACE(...) do { std::fprintf(stderr, "[trace kio_shim] " __VA_ARGS__); std::fputc('\n', stderr); } while (0)
-#else
-#define TRACE(...) ((void)0)
-#endif
 
 // The URL without its password, safe to log.
 [[maybe_unused]] static QByteArray shown(const QUrl &url)

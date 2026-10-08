@@ -18,7 +18,7 @@ run -e QT_QPA_PLATFORM=offscreen -e APPIMAGE_EXTRACT_AND_RUN=1 -e OUT="$OUT" mar
 
 echo "== release must contain no trace code"
 # Distinctive strings from trace messages in core, the bridge and the KIO shim, plus the emit() prefix.
-for m in "[trace " "bridge rerender" "to_blocks: parsing" "kio::read" "[trace kio_shim]"; do
+for m in "[trace " "bridge rerender" "to_blocks: parsing" "kio::read" "[trace native]"; do
   ! grep -aqF "$m" .docker-cache/appimage/AppDir/usr/bin/markite || { echo "trace string '$m' found in the release binary" >&2; exit 1; }
 done
 

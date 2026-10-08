@@ -71,6 +71,39 @@ EOF
   mkdir -p "$A/usr/share/icons/hicolor/scalable/apps"; cp io.github.otonm.markite.svg "$A/usr/share/icons/hicolor/scalable/apps/"
   mkdir -p "$A/usr/share/metainfo"; cp io.github.otonm.markite.metainfo.xml "$A/usr/share/metainfo/"
 
+  # Fonts for the Code Font and Preview Font menus (kde/src/app_init.cpp registers this directory at startup): regular, bold and
+  # italics only. Fira Code, JetBrains Mono and Cascadia Code come from packages in the build image; Monaspace Neon
+  # is a pinned download, verified by checksum. Licences (SIL OFL) travel with the fonts.
+  FD=$A/usr/share/markite/fonts; mkdir -p "$FD" "$A/usr/share/licenses/markite-fonts"
+  find /usr/share/fonts/fira-code /usr/share/fonts/jetbrains-mono-fonts /usr/share/fonts/cascadia-code-fonts \
+    \( -name "*-Regular.*" -o -name "*-Bold.*" -o -name "*-Italic.*" -o -name "*-BoldItalic.*" \) -exec cp {} "$FD/" \;
+  # Download once into the cache, verifying a pinned checksum: fetch <file> <url> <sha256>.
+  fetch() {
+    if [ ! -f "$C/$1" ]; then
+      curl -fsSL -o "$C/$1.part" "$2"
+      echo "$3  $C/$1.part" | sha256sum -c - || { rm -f "$C/$1.part"; exit 1; }
+      mv "$C/$1.part" "$C/$1"
+    fi
+  }
+  fetch monaspace-static-v1.400.zip https://github.com/githubnext/monaspace/releases/download/v1.400/monaspace-static-v1.400.zip \
+    ab66d71be751495f679727332a3345597943bd4d7beebca03f5cde04bf994de7
+  for w in Regular Bold Italic BoldItalic; do unzip -qjo "$C/monaspace-static-v1.400.zip" "Static Fonts/Monaspace Neon/MonaspaceNeon-$w.otf" -d "$FD"; done
+
+  # Preview fonts (sans: Inter, Open Sans, Roboto; serif: Merriweather, Lora, Source Serif 4): the same four styles.
+  # The first three and Merriweather are packages in the build image; Lora and Source Serif 4 are pinned downloads.
+  pick() { for w in Regular Bold Italic BoldItalic; do cp "$1/$2-$w."* "$FD/"; done; }
+  pick /usr/share/fonts/rsms-inter-fonts Inter
+  pick /usr/share/fonts/open-sans OpenSans
+  pick /usr/share/fonts/google-roboto Roboto
+  pick /usr/share/fonts/sorkintype-merriweather-fonts Merriweather
+  fetch lora-v3.021.zip https://github.com/cyrealtype/Lora-Cyrillic/releases/download/v3.021/Lora.zip \
+    19061972d1124d258dffd41f3ad12ce2db513f9b31fb98ece7afe7b538e8647f
+  for w in Regular Bold Italic BoldItalic; do unzip -qjo "$C/lora-v3.021.zip" "ttf/Lora-$w.ttf" -d "$FD"; done
+  fetch source-serif-4.005.zip https://github.com/adobe-fonts/source-serif/releases/download/4.005R/source-serif-4.005_Desktop.zip \
+    549fdb8f9a682bd06944298621404969f6de77c2e422ff3b8244a1dcd6a0c425
+  for w in Regular Bold It BoldIt; do unzip -qjo "$C/source-serif-4.005.zip" "source-serif-4.005_Desktop/TTF/SourceSerif4-$w.ttf" -d "$FD"; done
+  cp kde/fonts/LICENSE-*.txt "$A/usr/share/licenses/markite-fonts/"
+
   # Pinned release, verified by checksum (the tool is executed).
   T=$C/appimagetool-1.9.1-x86_64.AppImage
   if [ ! -x "$T" ]; then

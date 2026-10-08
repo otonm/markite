@@ -54,6 +54,17 @@ when you learn something that cost time. (Rules for working on the code live in 
   text core already holds. `Document::set_text` reports "unchanged" and the bridge skips the re-render.
 - Qt rich text ignores CSS classes, so preview code colours must be inline `style=` spans.
 
+- Code fonts: Qt shapes text with HarfBuzz defaults, so Fira Code's `calt` ligatures (`=>`, `!=`, `->`) render in the
+  `TextArea` with no extra setup (checked under Xvfb). Fonts are registered from `usr/share/markite/fonts` next to the
+  binary (`app_init.cpp`); a run outside the AppImage has no such directory and relies on installed fonts.
+- Preview fonts: Inter's contextual alternates turn `->` / `=>` into arrows in the preview, and pairs like `AVATAR`
+  kern, so shaping features reach rich-text blocks (checked under Xvfb). Fedora's Merriweather package ships many
+  optical variants; the AppImage takes only the four plain `Merriweather-<style>.ttf` files.
+- Fedora packages the three fonts but not Monaspace, hence its pinned download in `docker/appimage.sh`. The AppImage
+  script is one single-quoted `sh -c '...'`: an apostrophe in a comment inside it ends the quote and breaks the build.
+- A full disk shows up as a linker `Quota exceeded` / `No space left on device`; `.docker-cache/target` (musl core
+  tests) and `.docker-cache/appimage` are safe to delete, they are rebuilt.
+
 ## Verifying UI changes
 
 A headless smoke run (`QT_QPA_PLATFORM=offscreen`) only proves the QML loads. For layout and behaviour, run the app in a

@@ -21,6 +21,11 @@ and its preview.
 - **Scroll sync** between editor and preview (toggle in the menu, `Ctrl+Shift+L`).
 - **Code editor** with Markdown syntax highlighting, line numbers that stay put while you scroll
   horizontally, optional word wrap, and an optional minimap.
+- **Code Font** (menu): System Default, Fira Code, JetBrains Mono, Cascadia Code or Monaspace Neon. The four
+  fonts ship inside the AppImage (SIL Open Font License; licence texts included), so the ligatures work without
+  installing anything. Outside the AppImage, a font is offered only if it is installed.
+- **Preview Font** (menu): System Default, sans serif (Inter, Open Sans, Roboto) or serif (Merriweather, Lora,
+  Source Serif 4), bundled in the AppImage like the code fonts. Kerning and ligatures are on.
 - **Editor themes** (Kate themes): Breeze, Atom One, Catppuccin (Latte / Mocha), GitHub and Solarized, each
   with a light and a dark variant. The variant follows your system theme by default; the Theme menu can
   force always light or always dark. The theme applies to the editor, line numbers, minimap and
@@ -40,7 +45,7 @@ and its preview.
 - **File size limit**: files over 100 MB are not loaded, including a watched file that grows past that.
 - **Opens files from the command line**: `markite notes.md` (a plain path or a `file://` URL).
 - **Simple UI**: three-dots menu with Open, Save, Save As, View, Sync Scrolling, Wrap Text, Show Minimap,
-  Show Status Bar, Monitor File Changes, Convert Encoding, Convert Line Endings, About and Exit (`Ctrl+W`).
+  Code Font, Preview Font, Show Status Bar, Monitor File Changes, Convert Encoding, Convert Line Endings, About and Exit (`Ctrl+W`).
 - Remembers window size and position, plus your view settings (stored in `~/.config/markiterc`).
 
 ## Installation
@@ -86,7 +91,7 @@ Without installing anything on the host, the Docker scripts build everything in 
 ```sh
 ./docker/build.sh                # fmt + clippy, core tests, KDE build, QML unit tests, smoke test -> builds/debug/
 ./docker/appimage.sh             # full AppImage -> builds/debug/markite-x86_64.AppImage
-./docker/build_release.sh 1.0.4  # sets the version, builds the lean release AppImage -> builds/release/
+./docker/build_release.sh 1.0.5  # sets the version, builds the lean release AppImage -> builds/release/
 ```
 
 The binary links Qt's private API, so it only runs against the Qt minor version it was built with. The

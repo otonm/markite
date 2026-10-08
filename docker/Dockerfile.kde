@@ -15,4 +15,10 @@ RUN dnf install -y --setopt=install_weak_deps=False kf6-kio-devel kf6-kcoreaddon
         && dnf clean all # kio-extras: the sftp worker Markite bundles (kf6/kio/sftp.so)
 # Format/lint tools for docker/build.sh. Own layer so the layers above stay cached.
 RUN dnf install -y --setopt=install_weak_deps=False rustfmt clippy && dnf clean all
+# Code fonts bundled into the AppImage (docker/appimage.sh); unzip for the Monaspace archive. Own layer for caching.
+RUN dnf install -y --setopt=install_weak_deps=False fira-code-fonts jetbrains-mono-fonts cascadia-code-fonts unzip \
+    && dnf clean all
+# Preview fonts bundled into the AppImage (Lora and Source Serif 4 are not packaged: pinned downloads in appimage.sh).
+RUN dnf install -y --setopt=install_weak_deps=False google-roboto-fonts open-sans-fonts rsms-inter-fonts \
+        sorkintype-merriweather-fonts && dnf clean all
 ENV CARGO_HOME=/src/.docker-cache/cargo-fedora CARGO_TARGET_DIR=/src/.docker-cache/target-fedora
