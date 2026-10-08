@@ -44,6 +44,23 @@ Kirigami.ApplicationWindow {
             : fallback
     }
 
+    // Combo-box entries for font groups ({title, families}): "System Default", then per group an optional
+    // non-selectable heading and the families that are installed or bundled (a missing family would fall back to a
+    // proportional font, so it is not offered).
+    function fontChoices(groups) {
+        const out = [{ label: "System Default", family: "" }];
+        for (const g of groups) {
+            const found = g.families.filter(fontAvailable);
+            if (found.length === 0) continue;
+            if (g.title) out.push({ label: g.title, header: true });
+            for (const f of found) out.push({ label: f, family: f });
+        }
+        return out;
+    }
+    readonly property var codeFontChoices: fontChoices([{ families: codeFonts }])
+    readonly property var previewFontChoices: fontChoices([
+        { title: "Sans-Serif Fonts", families: sansFonts }, { title: "Serif Fonts", families: serifFonts }])
+
     // File name only (decoded for URLs); the status bar shows the full path.
     function displayName(path) {
         if (!path) return "Untitled";
@@ -54,33 +71,6 @@ Kirigami.ApplicationWindow {
     minimumHeight: Kirigami.Units.gridUnit * 20
     width: Kirigami.Units.gridUnit * 60
     height: Kirigami.Units.gridUnit * 35
-
-    // One radio entry per family that is installed or bundled, appended to `menu` (a Menu has no model support of
-    // its own; a missing family would fall back to a proportional font, so it is not offered).
-    component FontChoices: Instantiator {
-        id: choices
-        required property Controls.Menu menu
-        property string current: ""
-        signal picked(string family)
-        delegate: ChoiceItem {
-            required property string modelData
-            text: modelData
-            selected: choices.current === modelData
-            onTriggered: choices.picked(modelData)
-        }
-        onObjectAdded: (index, object) => menu.addItem(object)
-        onObjectRemoved: (index, object) => menu.removeItem(object)
-    }
-
-    // Radio-style menu entry driven by `selected`; a click can never leave it out of step with the setting.
-    component ChoiceItem: Controls.MenuItem {
-        id: item
-        property bool selected: false
-        checkable: true
-        checked: selected
-        onCheckedChanged: if (checked !== selected) checked = Qt.binding(() => item.selected)
-    }
-
 
     Document {
         id: doc
@@ -185,14 +175,176 @@ Kirigami.ApplicationWindow {
         }
     }
 
-    Kirigami.Dialog {
+    // A real, application-modal dialog window: the window manager moves and resizes it, unlike an in-window overlay.
+    // Esc and the Close button dismiss it.
+    component DialogWindow: Controls.ApplicationWindow {
+        flags: Qt.Dialog
+        modality: Qt.ApplicationModal
+        transientParent: root
+        function open() {
+            x = root.x + (root.width - width) / 2;   // centre over the main window (compositors may ignore this)
+            y = root.y + (root.height - height) / 2;
+            show(); raise(); requestActivate();
+        }
+        footer: Controls.DialogButtonBox {
+            standardButtons: Controls.DialogButtonBox.Close
+            onRejected: close()
+        }
+        Shortcut { sequence: "Esc"; onActivated: close() }
+    }
+
+    // A checkbox bound to a shared Action (which owns the setting and shortcut), laid out as checkbox, icon, a gap,
+    // text, and a one-line explanation below. The stock CheckBox packs icon and text tightly and ignores `spacing`.
+    component CheckOption: ColumnLayout {
+        id: opt
+        required property Controls.Action action
+        property string hint
+        spacing: 0
+        RowLayout {
+            spacing: Kirigami.Units.gridUnit * 0.75
+            Controls.CheckBox {
+                id: box
+                padding: 0
+                // Binding (not an assignment) so a shortcut that flips the action also updates the box.
+                Binding { target: box; property: "checked"; value: opt.action.checked }
+                onToggled: opt.action.toggle()
+            }
+            Kirigami.Icon {
+                source: opt.action.icon.name
+                implicitWidth: Kirigami.Units.iconSizes.small
+                implicitHeight: Kirigami.Units.iconSizes.small
+            }
+            Controls.Label {
+                text: opt.action.text
+                TapHandler { onTapped: box.toggle() }
+            }
+        }
+        Controls.Label {
+            text: opt.hint
+            font.pointSize: Kirigami.Theme.defaultFont.pointSize * 0.85
+            opacity: 0.7
+            leftPadding: box.width + Kirigami.Units.gridUnit * 0.75
+        }
+    }
+
+    // A font family combo box over `choices` ({label, family}), reading and writing one setting.
+    component FontCombo: Controls.ComboBox {
+        id: combo
+        required property var choices
+        required property string current
+        signal picked(string family)
+        model: choices
+        textRole: "label"
+        currentIndex: Math.max(0, choices.findIndex(c => !c.header && c.family === current))
+        onActivated: index => { if (!choices[index].header) picked(choices[index].family) }
+        // Headings are small, dimmed and fenced by lines above and below; they cannot be chosen.
+        delegate: Controls.ItemDelegate {
+            required property var modelData
+            required property int index
+            width: ListView.view.width
+            enabled: !modelData.header
+            highlighted: combo.highlightedIndex === index
+            contentItem: ColumnLayout {
+                spacing: Kirigami.Units.smallSpacing
+                Kirigami.Separator { visible: modelData.header === true; Layout.fillWidth: true }
+                Controls.Label {
+                    text: modelData.label
+                    font.pointSize: Kirigami.Theme.defaultFont.pointSize * (modelData.header ? 0.85 : 1)
+                    elide: Text.ElideRight
+                    Layout.fillWidth: true
+                }
+                Kirigami.Separator { visible: modelData.header === true; Layout.fillWidth: true }
+            }
+        }
+    }
+
+    DialogWindow {
+        id: optionsDialog
+        title: "Options"
+        width: Kirigami.Units.gridUnit * 36; height: Kirigami.Units.gridUnit * 18
+        minimumWidth: Kirigami.Units.gridUnit * 28; minimumHeight: Kirigami.Units.gridUnit * 14
+        RowLayout {
+            anchors.fill: parent
+            spacing: 0
+            ColumnLayout {
+                Layout.fillHeight: true
+                Layout.preferredWidth: Kirigami.Units.gridUnit * 8
+                spacing: 0
+                Repeater {
+                    model: ["Appearance", "Editor", "Files", "Interface"]
+                    Controls.ItemDelegate {
+                        required property string modelData
+                        required property int index
+                        Layout.fillWidth: true
+                        text: modelData
+                        highlighted: pages.currentIndex === index
+                        onClicked: pages.currentIndex = index
+                    }
+                }
+                Item { Layout.fillHeight: true }
+            }
+            Kirigami.Separator { Layout.fillHeight: true }
+            StackLayout {
+                id: pages
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                Layout.margins: Kirigami.Units.largeSpacing
+                Kirigami.FormLayout {
+                    Controls.ComboBox {
+                        Kirigami.FormData.label: "Theme:"
+                        model: editorTheme.families
+                        textRole: "name"
+                        currentIndex: Math.max(0, editorTheme.families.findIndex(f => f.name === settings.editorTheme))
+                        onActivated: index => settings.editorTheme = editorTheme.families[index].name
+                    }
+                    Controls.ComboBox {
+                        id: appearanceBox
+                        Kirigami.FormData.label: "Variant:"
+                        readonly property var values: ["system", "light", "dark"]
+                        model: ["Follow System", "Always Light", "Always Dark"]
+                        currentIndex: Math.max(0, values.indexOf(settings.appearance))
+                        onActivated: index => settings.appearance = values[index]
+                    }
+                    FontCombo {
+                        Kirigami.FormData.label: "Code font:"
+                        choices: root.codeFontChoices; current: settings.codeFont
+                        onPicked: family => settings.codeFont = family
+                    }
+                    FontCombo {
+                        Kirigami.FormData.label: "Preview font:"
+                        choices: root.previewFontChoices; current: settings.previewFont
+                        onPicked: family => settings.previewFont = family
+                    }
+                }
+                ColumnLayout {
+                    CheckOption { action: wrapAction; hint: "Wrap long lines in the editor" }
+                    CheckOption { action: syncAction; hint: "Editor and preview scroll together (Ctrl+Shift+L)" }
+                    Item { Layout.fillHeight: true }
+                }
+                ColumnLayout {
+                    CheckOption { action: watchAction; hint: "Reload when the file changes on disk (local and remote)" }
+                    CheckOption { action: convertEncodingAction; hint: "Save as UTF-8 instead of the file's own encoding" }
+                    CheckOption { action: convertEolAction; hint: "Save with LF instead of the file's own line endings" }
+                    Item { Layout.fillHeight: true }
+                }
+                ColumnLayout {
+                    CheckOption { action: minimapAction; hint: "Code map beside the editor" }
+                    CheckOption { action: statusBarAction; hint: "Path, counts, encoding and line ending" }
+                    Item { Layout.fillHeight: true }
+                }
+            }
+        }
+    }
+
+    DialogWindow {
         id: aboutDialog
         title: "About Markite"
-        standardButtons: Kirigami.Dialog.Close
-        padding: Kirigami.Units.largeSpacing
+        width: Kirigami.Units.gridUnit * 24; height: Kirigami.Units.gridUnit * 22
+        minimumWidth: Kirigami.Units.gridUnit * 18; minimumHeight: Kirigami.Units.gridUnit * 18
         ColumnLayout {
+            anchors.fill: parent
+            anchors.margins: Kirigami.Units.largeSpacing
             spacing: Kirigami.Units.smallSpacing
-            implicitWidth: Kirigami.Units.gridUnit * 22
             Image {
                 source: "qrc:/icons/app.svg"
                 sourceSize.width: Kirigami.Units.gridUnit * 5
@@ -301,6 +453,11 @@ Kirigami.ApplicationWindow {
             onToggled: settings.wrapText = wrapAction.checked
         }
         Controls.Action {
+            id: optionsAction
+            text: "Options…"; icon.name: "configure"; shortcut: StandardKey.Preferences
+            onTriggered: optionsDialog.open()
+        }
+        Controls.Action {
             id: aboutAction
             text: "About Markite"; icon.name: "help-about"
             onTriggered: aboutDialog.open()
@@ -349,65 +506,7 @@ Kirigami.ApplicationWindow {
                 Controls.MenuItem { action: viewPreviewAction }
                 Controls.MenuItem { action: viewBothAction }
             }
-            Controls.Menu {
-                id: themeMenu
-                title: "Theme"
-                icon.name: "preferences-desktop-color"
-                // One entry per theme family, inserted ahead of the separator (Menu has no model support of its own).
-                Instantiator {
-                    model: editorTheme.families
-                    delegate: ChoiceItem {
-                        required property var modelData
-                        text: modelData.name
-                        selected: settings.editorTheme === modelData.name
-                        onTriggered: settings.editorTheme = modelData.name
-                    }
-                    onObjectAdded: (index, object) => themeMenu.insertItem(index, object)
-                    onObjectRemoved: (index, object) => themeMenu.removeItem(object)
-                }
-                Controls.MenuSeparator {}
-                ChoiceItem { text: "Follow System"; selected: settings.appearance === "system"; onTriggered: settings.appearance = "system" }
-                ChoiceItem { text: "Always Light"; selected: settings.appearance === "light"; onTriggered: settings.appearance = "light" }
-                ChoiceItem { text: "Always Dark"; selected: settings.appearance === "dark"; onTriggered: settings.appearance = "dark" }
-            }
-            Controls.Menu {
-                id: fontMenu
-                title: "Code Font"
-                icon.name: "preferences-desktop-font"
-                ChoiceItem { text: "System Default"; selected: !root.fontAvailable(settings.codeFont); onTriggered: settings.codeFont = "" }
-                FontChoices {
-                    model: root.codeFonts.filter(root.fontAvailable)
-                    menu: fontMenu; current: settings.codeFont; onPicked: family => settings.codeFont = family
-                }
-            }
-            Controls.Menu {
-                title: "Preview Font"
-                icon.name: "preferences-desktop-font"
-                ChoiceItem { text: "System Default"; selected: !root.fontAvailable(settings.previewFont); onTriggered: settings.previewFont = "" }
-                Controls.Menu {
-                    id: sansMenu
-                    title: "Sans Serif"
-                    FontChoices {
-                        model: root.sansFonts.filter(root.fontAvailable)
-                        menu: sansMenu; current: settings.previewFont; onPicked: family => settings.previewFont = family
-                    }
-                }
-                Controls.Menu {
-                    id: serifMenu
-                    title: "Serif"
-                    FontChoices {
-                        model: root.serifFonts.filter(root.fontAvailable)
-                        menu: serifMenu; current: settings.previewFont; onPicked: family => settings.previewFont = family
-                    }
-                }
-            }
-            Controls.MenuItem { action: syncAction }
-            Controls.MenuItem { action: wrapAction }
-            Controls.MenuItem { action: minimapAction }
-            Controls.MenuItem { action: statusBarAction }
-            Controls.MenuItem { action: watchAction }
-            Controls.MenuItem { action: convertEncodingAction }
-            Controls.MenuItem { action: convertEolAction }
+            Controls.MenuItem { action: optionsAction }
             Controls.MenuSeparator {}
             Controls.MenuItem { action: aboutAction }
             Controls.MenuItem { action: quitAction }

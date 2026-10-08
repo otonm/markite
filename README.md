@@ -18,34 +18,35 @@ and its preview.
   `Ctrl+1` / `Ctrl+2` / `Ctrl+3`. Panes slide when you switch, and the last mode is remembered, so a
   reader can simply stay in preview-only.
 - **Live preview** of the rendered Markdown (tables, task lists, strikethrough, footnotes, autolinks).
-- **Scroll sync** between editor and preview (toggle in the menu, `Ctrl+Shift+L`).
+- **Scroll sync** between editor and preview (toggle in Options, or `Ctrl+Shift+L`).
 - **Code editor** with Markdown syntax highlighting, line numbers that stay put while you scroll
   horizontally, optional word wrap, and an optional minimap.
-- **Code Font** (menu): System Default, Fira Code, JetBrains Mono, Cascadia Code or Monaspace Neon. The four
+- **Code Font** (Options): System Default, Fira Code, JetBrains Mono, Cascadia Code or Monaspace Neon. The four
   fonts ship inside the AppImage (SIL Open Font License; licence texts included), so the ligatures work without
   installing anything. Outside the AppImage, a font is offered only if it is installed.
-- **Preview Font** (menu): System Default, sans serif (Inter, Open Sans, Roboto) or serif (Merriweather, Lora,
+- **Preview Font** (Options): System Default, sans serif (Inter, Open Sans, Roboto) or serif (Merriweather, Lora,
   Source Serif 4), bundled in the AppImage like the code fonts. Kerning and ligatures are on.
 - **Editor themes** (Kate themes): Breeze, Atom One, Catppuccin (Latte / Mocha), GitHub and Solarized, each
-  with a light and a dark variant. The variant follows your system theme by default; the Theme menu can
+  with a light and a dark variant. The variant follows your system theme by default; Options > Appearance can
   force always light or always dark. The theme applies to the editor, line numbers, minimap and
   the preview.
 - **Syntax highlighting in the preview**: fenced code blocks are coloured with the selected theme's token colours
   (the same colours as the editor), for the languages known to syntect and `two-face` (Rust and TOML are
   covered by tests). Unknown languages stay plain.
-- **Status bar** (can be switched off in the menu): full path of the open file on the left, word and character
+- **Status bar** (can be switched off in Options): full path of the open file on the left, word and character
   count (characters without whitespace) and the file's encoding and line ending (e.g. `UTF-8 / LF`) on the right.
   The window title shows just the file name.
 - **Encoding and line endings**: detected when a file opens (BOM, UTF-8, otherwise a statistical guess for
-  legacy encodings such as Latin-1; LF, CRLF or CR). The menu options **Convert Encoding** and **Convert Line
+  legacy encodings such as Latin-1; LF, CRLF or CR). The options **Convert Encoding** and **Convert Line
   Endings** (both on by default) make Save write UTF-8 and `\n`; switch them off to keep the file's own format.
-- **Monitor File Changes** (menu, on by default): the open file, local or remote, is re-read when it changes on
+- **Monitor File Changes** (Options, on by default): the open file, local or remote, is re-read when it changes on
   disk. A file without unsaved edits reloads automatically; with unsaved edits you get a warning and your text is
   kept.
 - **File size limit**: files over 100 MB are not loaded, including a watched file that grows past that.
 - **Opens files from the command line**: `markite notes.md` (a plain path or a `file://` URL).
-- **Simple UI**: three-dots menu with Open, Save, Save As, View, Sync Scrolling, Wrap Text, Show Minimap,
-  Code Font, Preview Font, Show Status Bar, Monitor File Changes, Convert Encoding, Convert Line Endings, About and Exit (`Ctrl+W`).
+- **Simple UI**: three-dots menu with Open, Save, Save As, View, Options (`Ctrl+,`), About and Exit (`Ctrl+W`).
+  The Options dialog has Appearance (theme, variant, code and preview font), Editor (wrap text, sync scrolling),
+  Files (monitor changes, convert encoding and line endings) and Interface (minimap, status bar) pages.
 - Remembers window size and position, plus your view settings (stored in `~/.config/markiterc`).
 
 ## Installation
@@ -91,7 +92,7 @@ Without installing anything on the host, the Docker scripts build everything in 
 ```sh
 ./docker/build.sh                # fmt + clippy, core tests, KDE build, QML unit tests, smoke test -> builds/debug/
 ./docker/appimage.sh             # full AppImage -> builds/debug/markite-x86_64.AppImage
-./docker/build_release.sh 1.0.5  # sets the version, builds the lean release AppImage -> builds/release/
+./docker/build_release.sh 1.0.6  # sets the version, builds the lean release AppImage -> builds/release/
 ```
 
 The binary links Qt's private API, so it only runs against the Qt minor version it was built with. The

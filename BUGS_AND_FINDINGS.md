@@ -65,6 +65,13 @@ when you learn something that cost time. (Rules for working on the code live in 
 - A full disk shows up as a linker `Quota exceeded` / `No space left on device`; `.docker-cache/target` (musl core
   tests) and `.docker-cache/appimage` are safe to delete, they are rebuilt.
 
+- Options/About are separate modal windows. Checked under Xvfb with openbox (move, resize, Esc, clicks on the main window
+  ignored while open); not checked on KDE Plasma or Wayland, where the compositor may ignore the requested position.
+
+- The org.kde.desktop `CheckBox` ignores `spacing` and packs an action's icon tightly against its text; the Options
+  dialog's `CheckOption` lays out checkbox, icon and label itself (a `Binding` keeps the box in step with the action).
+  A combo box cannot hold submenus: `FontCombo` fakes groups with disabled heading rows between separators.
+
 ## Verifying UI changes
 
 A headless smoke run (`QT_QPA_PLATFORM=offscreen`) only proves the QML loads. For layout and behaviour, run the app in a
