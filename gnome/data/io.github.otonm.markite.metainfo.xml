@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- No <screenshots> yet: Flathub/AppStream need hosted image URLs. Add them once the project hosts screenshots. -->
+<component type="desktop-application">
+  <id>io.github.otonm.markite</id>
+  <launchable type="desktop-id">io.github.otonm.markite.desktop</launchable>
+  <name>Markite</name>
+  <summary>Edit and preview Markdown</summary>
+  <developer id="io.github.otonm">
+    <name>otonm</name>
+  </developer>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <url type="homepage">https://github.com/otonm/markite</url>
+  <url type="bugtracker">https://github.com/otonm/markite/issues</url>
+  <description>
+    <p>A small, native Markdown viewer and editor. Open a file, see it rendered, fix a typo when needed, and nothing more: no projects, plugins or workspaces, just a file and its preview.</p>
+    <ul>
+      <li>Three view modes: code only, preview only, or both side by side</li>
+      <li>Live preview with tables, task lists, strikethrough, footnotes and autolinks</li>
+      <li>Scroll sync between editor and preview</li>
+      <li>Code editor with Markdown syntax highlighting, line numbers, optional word wrap and a minimap</li>
+      <li>Editor themes (Breeze, Atom One, Catppuccin, GitHub, Solarized) with light and dark variants</li>
+      <li>Bundled code and preview fonts, with ligatures</li>
+      <li>Detects and converts file encodings and line endings</li>
+      <li>Reloads the open file when it changes on disk, including remote files over SFTP</li>
+    </ul>
+  </description>
+  <content_rating type="oars-1.1"/>
+  <provides>
+    <mediatype>text/markdown</mediatype>
+  </provides>
+  <supports>
+    <control>pointing</control>
+    <control>keyboard</control>
+    <control>touch</control>
+  </supports>
+  <recommends>
+    <display_length compare="ge">360</display_length>
+  </recommends>
+  <categories>
+    <category>Utility</category>
+    <category>TextEditor</category>
+  </categories>
+  <branding>
+    <color type="primary" scheme_preference="light">#8fd0f5</color>
+    <color type="primary" scheme_preference="dark">#2b5f7d</color>
+  </branding>
+  <releases><release version="1.1.0" date="2026-10-09"/><release version="1.0.7" date="2026-10-08"/></releases>
+</component>

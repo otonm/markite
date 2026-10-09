@@ -1,0 +1,13 @@
+[Desktop Entry]
+Name=Markite
+GenericName=Markdown Editor
+Comment=Edit and preview Markdown
+Exec=markite-gnome %U
+Icon=io.github.otonm.markite
+Type=Application
+Terminal=false
+Categories=Utility;TextEditor;GTK;GNOME;
+MimeType=text/markdown;text/x-markdown;x-scheme-handler/sftp;
+StartupNotify=true
+StartupWMClass=io.github.otonm.markite
+Keywords=markdown;md;editor;preview;

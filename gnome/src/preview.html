@@ -1,0 +1,17 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<!-- default-src 'none' blocks scripts (inline handlers too), frames, fonts, fetch and remote CSS. Images may be data: or
+     https:. http: is excluded on purpose: a network attacker could swap or track a plain-text image, and a document that
+     "only" shows pictures must not be able to downgrade the connection. The page logic is a user script, so no
+     'unsafe-inline' for scripts is needed. base-uri and form-action are not covered by default-src. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data: https:; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<style>
+@@CSS@@
+</style>
+<style id="dyn"></style>
+</head>
+<body><main id="c"></main></body>
+</html>

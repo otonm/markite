@@ -1,0 +1,15 @@
+# Build/test image for the GNOME (GTK 4 + libadwaita) frontend. Nothing is installed on the host.
+ARG FEDORA=44
+FROM fedora:${FEDORA}
+RUN dnf install -y --setopt=install_weak_deps=False \
+        rust cargo rustfmt clippy gcc pkgconf-pkg-config \
+        gtk4-devel libadwaita-devel gtksourceview5-devel webkitgtk6.0-devel \
+        glib2-devel desktop-file-utils libappstream-glib appstream \
+        curl unzip python3 \
+    && dnf clean all
+# Headless smoke test (build_gnome.sh): X server, session bus, a monospace font, GL software rendering for WebKit.
+RUN dnf install -y --setopt=install_weak_deps=False \
+        xorg-x11-server-Xvfb dbus-daemon fira-code-fonts dejavu-sans-mono-fonts adwaita-icon-theme \
+        gsettings-desktop-schemas mesa-dri-drivers \
+    && dnf clean all
+ENV CARGO_HOME=/src/.docker-cache/cargo-gnome CARGO_TARGET_DIR=/src/.docker-cache/target-gnome

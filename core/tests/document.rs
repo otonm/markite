@@ -174,3 +174,17 @@ fn read_limited_rejects_non_regular_files() {
     );
     fs::remove_dir_all(dir).unwrap();
 }
+
+#[test]
+fn prepare_and_finish_save_track_the_encoded_text() {
+    let mut d = Document::default();
+    d.load("sftp://h/a.md", b"a\r\nb");
+    d.set_text("a\nb edited");
+    let plan = d.prepare_save().unwrap();
+    assert_eq!(plan.bytes, b"a\nb edited", "default options convert to LF");
+    assert!(d.is_dirty(), "nothing changes until the write is confirmed");
+    d.set_text("a\nb edited more"); // typed while the write was in flight
+    d.finish_save("sftp://h/a.md", plan);
+    assert!(d.is_dirty(), "the later edit is still unsaved");
+    assert_eq!(d.line_ending_label(), "LF");
+}

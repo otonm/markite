@@ -3,6 +3,7 @@
 ```
 core/   markite-core   pure Rust, no toolkit deps, `cargo test` without Qt
 kde/    markite-kde    cxx-qt bridge (src/document.rs) + QML (src/qml/) + main.rs
+gnome/  markite-gnome   GTK 4 + libadwaita frontend, plain Rust (its own workspace; Flatpak)
 ```
 
 Known pitfalls, established facts and known limitations: `BUGS_AND_FINDINGS.md`.
@@ -122,11 +123,27 @@ Run a debug AppImage from a terminal to see it. New code paths should get `trace
 - Threading is the frontend's job (cxx-qt `qt_thread`, GTK `glib::spawn`). Core stays
   synchronous so it can be driven from any event loop or from tests.
 
-## Adding a second frontend later
-Create `gtk/` (gtk4 + libadwaita + sourceview5) or `tui/`; depend on `markite-core`;
-reimplement only the right-hand column of the table above. Core is untouched.
+## The GNOME frontend (`gnome/`)
 
-## Build
+Same rule as KDE: core owns the text, the document state and every policy; `gnome/` mirrors it into widgets. There is no
+bridge: the GTK code calls `markite_core::Document` directly (one per window). What replaces the KDE column:
+
+| Concern | KDE | GNOME |
+|---|---|---|
+| window, header, status bar, close prompt, view-mode slide, file actions, change monitor | `Main.qml` | `window.rs` |
+| editor, wrap column, font/ligature CSS, scheme | `TextArea` + Canvas | `editor.rs` (GtkSourceView, native `Map`) |
+| preview, scroll messages | one `TextArea` per block | `preview.rs` + `preview.{html,css,js}` (WebKitGTK, one `<section>` per core block) |
+| options | `Options` dialog + `QSettings` | `prefs.rs` (`AdwPreferencesDialog`) + GSettings (`data/*.gschema.xml`, `settings.rs`) |
+| remote files | KIO shim | `files.rs` (GIO: async read/write, mount-on-demand with `GtkMountOperation`) |
+| colours | `EditorThemes.qml` | generated `palette.rs`, 10 style schemes and `markite-markdown.lang` (`tools/gen_gnome_data.py`) |
+
+Core additions made for it (additive, the KDE app does not use them): `options` (value ranges, curated font families, theme
+names), `Document::prepare_save`/`finish_save` (so an asynchronous write only marks the document saved when it succeeded,
+and edits typed meanwhile stay dirty). Threads: none; remote I/O is async on the GLib main loop. Data files (language
+definition, style schemes, compiled schema in dev) are found through `data::dir()` (`MARKITE_DATA_DIR`, else the install
+prefix, else `gnome/data`). Packaging notes: `gnome/flatpak/README.md`.
+
+## Build (KDE; for the GNOME edition see `docker/build_gnome*.sh`)
 ```
 cargo test                       # core only; no Qt needed
 cargo run -p markite-kde        # needs Qt6, KF6 Kirigami, KSyntaxHighlighting, qqc2-desktop-style

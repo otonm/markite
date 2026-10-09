@@ -1,0 +1,193 @@
+{
+  "app-id": "io.github.otonm.markite",
+  "runtime": "org.gnome.Platform",
+  "runtime-version": "51",
+  "sdk": "org.gnome.Sdk",
+  "sdk-extensions": [
+    "org.freedesktop.Sdk.Extension.rust-stable"
+  ],
+  "command": "markite-gnome",
+  "finish-args": [
+    "--share=ipc",
+    "--socket=wayland",
+    "--socket=fallback-x11",
+    "--device=dri",
+    "--talk-name=org.gtk.vfs.*",
+    "--filesystem=xdg-run/gvfsd"
+  ],
+  "build-options": {
+    "append-path": "/usr/lib/sdk/rust-stable/bin",
+    "env": {
+      "CARGO_HOME": "/run/build/markite/cargo",
+      "CARGO_TARGET_DIR": "/run/build/markite/target"
+    }
+  },
+  "modules": [
+    {
+      "name": "fonts",
+      "buildsystem": "simple",
+      "build-commands": [
+        "for w in Regular Bold; do install -Dm644 -t /app/share/fonts/markite fira/ttf/FiraCode-$w.ttf; done",
+        "for w in Regular Bold Italic BoldItalic; do install -Dm644 -t /app/share/fonts/markite jetbrains/fonts/ttf/JetBrainsMono-$w.ttf cascadia/ttf/static/CascadiaCode-$w.ttf \"monaspace/Static Fonts/Monaspace Neon/MonaspaceNeon-$w.otf\" inter/extras/ttf/Inter-$w.ttf opensans/OpenSans-$w.ttf roboto/hinted/static/Roboto-$w.ttf merriweather/Merriweather-$w.ttf lora/ttf/Lora-$w.ttf; done",
+        "for w in Regular Bold It BoldIt; do install -Dm644 -t /app/share/fonts/markite sourceserif/source-serif-4.005_Desktop/TTF/SourceSerif4-$w.ttf; done",
+        "rm licenses-kde/LICENSE-OpenSans.txt licenses-kde/LICENSE-Roboto.txt",
+        "install -Dm644 -t /app/share/licenses/io.github.otonm.markite licenses-kde/LICENSE-*.txt licenses-upstream/LICENSE-*.txt"
+      ],
+      "sources": [
+        {
+          "type": "archive",
+          "url": "https://github.com/tonsky/FiraCode/releases/download/6.2/Fira_Code_v6.2.zip",
+          "sha256": "0949915ba8eb24d89fd93d10a7ff623f42830d7c5ffc3ecbf960e4ecad3e3e79",
+          "strip-components": 0,
+          "dest": "fira"
+        },
+        {
+          "type": "archive",
+          "url": "https://github.com/JetBrains/JetBrainsMono/releases/download/v2.304/JetBrainsMono-2.304.zip",
+          "sha256": "6f6376c6ed2960ea8a963cd7387ec9d76e3f629125bc33d1fdcd7eb7012f7bbf",
+          "strip-components": 0,
+          "dest": "jetbrains"
+        },
+        {
+          "type": "archive",
+          "url": "https://github.com/microsoft/cascadia-code/releases/download/v2407.24/CascadiaCode-2407.24.zip",
+          "sha256": "e67a68ee3386db63f48b9054bd196ea752bc6a4ebb4df35adce6733da50c8474",
+          "strip-components": 0,
+          "dest": "cascadia"
+        },
+        {
+          "type": "archive",
+          "url": "https://github.com/githubnext/monaspace/releases/download/v1.400/monaspace-static-v1.400.zip",
+          "sha256": "ab66d71be751495f679727332a3345597943bd4d7beebca03f5cde04bf994de7",
+          "strip-components": 0,
+          "dest": "monaspace"
+        },
+        {
+          "type": "archive",
+          "url": "https://github.com/rsms/inter/releases/download/v4.1/Inter-4.1.zip",
+          "sha256": "9883fdd4a49d4fb66bd8177ba6625ef9a64aa45899767dde3d36aa425756b11e",
+          "strip-components": 0,
+          "dest": "inter"
+        },
+        {
+          "type": "archive",
+          "url": "https://github.com/googlefonts/roboto-3-classic/releases/download/v3.016/Roboto_v3.016.zip",
+          "sha256": "1653dbe12f248da8fb0b9920db7b9496cd677ed3981154f6f15285c8bd4e334f",
+          "strip-components": 0,
+          "dest": "roboto"
+        },
+        {
+          "type": "archive",
+          "url": "https://github.com/cyrealtype/Lora-Cyrillic/releases/download/v3.021/Lora.zip",
+          "sha256": "19061972d1124d258dffd41f3ad12ce2db513f9b31fb98ece7afe7b538e8647f",
+          "strip-components": 0,
+          "dest": "lora"
+        },
+        {
+          "type": "archive",
+          "url": "https://github.com/adobe-fonts/source-serif/releases/download/4.005R/source-serif-4.005_Desktop.zip",
+          "sha256": "549fdb8f9a682bd06944298621404969f6de77c2e422ff3b8244a1dcd6a0c425",
+          "strip-components": 0,
+          "dest": "sourceserif"
+        },
+        {
+          "type": "file",
+          "url": "https://raw.githubusercontent.com/googlefonts/opensans/bd7e37632246368c60fdcbd374dbf9bad11969b6/fonts/ttf/OpenSans-Regular.ttf",
+          "sha256": "c53aceea2dcf5b4098099c0c4d0a061d17e178a049317b42a422b1a9f7f8eb59",
+          "dest": "opensans"
+        },
+        {
+          "type": "file",
+          "url": "https://raw.githubusercontent.com/googlefonts/opensans/bd7e37632246368c60fdcbd374dbf9bad11969b6/fonts/ttf/OpenSans-Bold.ttf",
+          "sha256": "27da758f4dcac9a65abe914c13b463b42982b9909bc65713424099f4810bd1e6",
+          "dest": "opensans"
+        },
+        {
+          "type": "file",
+          "url": "https://raw.githubusercontent.com/googlefonts/opensans/bd7e37632246368c60fdcbd374dbf9bad11969b6/fonts/ttf/OpenSans-Italic.ttf",
+          "sha256": "93bc1bb6abf4e6b7c75d7131714061d5b57cc478abcabe4cb3519bb38fb917aa",
+          "dest": "opensans"
+        },
+        {
+          "type": "file",
+          "url": "https://raw.githubusercontent.com/googlefonts/opensans/bd7e37632246368c60fdcbd374dbf9bad11969b6/fonts/ttf/OpenSans-BoldItalic.ttf",
+          "sha256": "d672a770037104b6af45e1336b3d3c1729c8aea940f81e010f5a8a7319c29a21",
+          "dest": "opensans"
+        },
+        {
+          "type": "file",
+          "url": "https://raw.githubusercontent.com/SorkinType/Merriweather/4481226b336843648b5b2ee64f75737f262ded15/fonts/ttf/Merriweather-Regular.ttf",
+          "sha256": "10ec10d1f7a9b5f0eb1a964e06348ce20587d478c661ea36728cce7b57f3de1c",
+          "dest": "merriweather"
+        },
+        {
+          "type": "file",
+          "url": "https://raw.githubusercontent.com/SorkinType/Merriweather/4481226b336843648b5b2ee64f75737f262ded15/fonts/ttf/Merriweather-Bold.ttf",
+          "sha256": "a2fa4f57946c62036f79d9e8b4b642515001d65af1e6a98afc0b94bf669e3f11",
+          "dest": "merriweather"
+        },
+        {
+          "type": "file",
+          "url": "https://raw.githubusercontent.com/SorkinType/Merriweather/4481226b336843648b5b2ee64f75737f262ded15/fonts/ttf/Merriweather-Italic.ttf",
+          "sha256": "1f73096441117e56bd867a437188e98bcf8ae7dcc7f676980da2ed2b6b51554d",
+          "dest": "merriweather"
+        },
+        {
+          "type": "file",
+          "url": "https://raw.githubusercontent.com/SorkinType/Merriweather/4481226b336843648b5b2ee64f75737f262ded15/fonts/ttf/Merriweather-BoldItalic.ttf",
+          "sha256": "f9bf9c32fc1297711b7d309cee9c9ba10ebb00148f4ceda21760f4b1b7e3e8ef",
+          "dest": "merriweather"
+        },
+        {
+          "type": "file",
+          "url": "https://raw.githubusercontent.com/googlefonts/opensans/bd7e37632246368c60fdcbd374dbf9bad11969b6/OFL.txt",
+          "sha256": "01cd5ffb3a528c219a86e49a814c6c53bd8a69b9a3c305dd237074ba1c811af7",
+          "dest": "licenses-upstream",
+          "dest-filename": "LICENSE-OpenSans.txt"
+        },
+        {
+          "type": "file",
+          "url": "https://raw.githubusercontent.com/googlefonts/roboto-3-classic/v3.016/OFL.txt",
+          "sha256": "061402327a96aadb0bfb694a960ed289ecd38d383e396243831ab81feb109c41",
+          "dest": "licenses-upstream",
+          "dest-filename": "LICENSE-Roboto.txt"
+        },
+        {
+          "type": "dir",
+          "path": "../../kde/fonts",
+          "dest": "licenses-kde"
+        }
+      ]
+    },
+    {
+      "name": "markite",
+      "buildsystem": "simple",
+      "build-commands": [
+        "cargo --offline build --release --locked --manifest-path gnome/Cargo.toml",
+        "install -Dm755 /run/build/markite/target/release/markite-gnome /app/bin/markite-gnome",
+        "install -Dm644 gnome/data/io.github.otonm.markite.desktop /app/share/applications/io.github.otonm.markite.desktop",
+        "install -Dm644 gnome/data/io.github.otonm.markite.metainfo.xml /app/share/metainfo/io.github.otonm.markite.metainfo.xml",
+        "install -Dm644 gnome/data/icons/hicolor/scalable/apps/io.github.otonm.markite.svg /app/share/icons/hicolor/scalable/apps/io.github.otonm.markite.svg",
+        "install -Dm644 gnome/data/io.github.otonm.markite.gschema.xml /app/share/glib-2.0/schemas/io.github.otonm.markite.gschema.xml",
+        "glib-compile-schemas --strict /app/share/glib-2.0/schemas",
+        "mkdir -p /app/share/markite && cp -r gnome/data/language-specs gnome/data/styles /app/share/markite/"
+      ],
+      "sources": [
+        {
+          "type": "dir",
+          "path": "../..",
+          "skip": [
+            "builds",
+            ".docker-cache",
+            ".git",
+            "target",
+            "gnome/target",
+            ".mockups",
+            "gnome/flatpak/.flatpak-builder"
+          ]
+        },
+        "cargo-sources.json"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,36 @@
+:root {
+  --bg: #fff; --fg: #000; --heading: #000; --code: #000; --code-bg: #eee; --link: #06c; --quote: #555; --sel: #9bf;
+  --font: system-ui, sans-serif; --size: 16px; --maxw: none;
+}
+html { overflow-x: hidden; background: var(--bg); }
+body {
+  margin: 0; background: var(--bg); color: var(--fg);
+  font-family: var(--font); font-size: var(--size); line-height: 1.5;
+  font-kerning: normal; font-feature-settings: "liga" 1, "calt" 1, "kern" 1; text-rendering: optimizeLegibility;
+  overflow-wrap: anywhere;
+}
+::selection { background: var(--sel); }
+/* border-box: --maxw already includes the side padding, so the text column itself is the requested width. */
+main { box-sizing: border-box; width: 100%; max-width: var(--maxw); margin: 0 auto; padding: 16px 24px; }
+/* The block's own padding (not a margin) carries the gap, so a block's box tiles the page and
+   position <-> (block, fraction) mapping has no dead zones. */
+section { display: flow-root; padding-bottom: 0.75em; overflow-anchor: auto; }
+section > :first-child { margin-top: 0; }
+section > :last-child { margin-bottom: 0; }
+h1, h2, h3, h4, h5, h6 { color: var(--heading); line-height: 1.25; margin: 1.2em 0 0.5em; }
+h1 { font-size: 2em; } h2 { font-size: 1.5em; } h3 { font-size: 1.25em; } h4, h5, h6 { font-size: 1em; }
+a { color: var(--link); }
+p, ul, ol, pre, blockquote, table { margin: 0 0 0.75em; }
+ul, ol { padding-left: 1.6em; }
+li.task-list-item { list-style: none; margin-left: -1.4em; }
+blockquote { color: var(--quote); margin-left: 0; padding-left: 1em; border-left: 3px solid color-mix(in srgb, var(--quote) 50%, transparent); }
+code, pre { font-family: ui-monospace, "Cascadia Code", "DejaVu Sans Mono", monospace; color: var(--code); background: var(--code-bg); }
+code { font-size: 0.9em; padding: 0.1em 0.3em; border-radius: 4px; }
+/* Code scrolls inside itself so a long line never widens the page. */
+pre { padding: 0.75em 1em; border-radius: 6px; overflow-x: auto; overflow-wrap: normal; line-height: 1.4; }
+pre code { padding: 0; background: none; font-size: 0.9em; }
+table { display: block; max-width: 100%; overflow-x: auto; border-collapse: collapse; }
+th, td { border: 1px solid color-mix(in srgb, var(--fg) 25%, transparent); padding: 0.3em 0.7em; }
+th { background: color-mix(in srgb, var(--fg) 8%, transparent); }
+img { max-width: 100%; height: auto; }
+hr { border: 0; border-top: 1px solid color-mix(in srgb, var(--fg) 25%, transparent); }

@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist>
+  <schema id="io.github.otonm.markite" path="/io/github/otonm/markite/">
+    <key name="appearance" type="s">
+      <choices>
+        <choice value='system'/>
+        <choice value='light'/>
+        <choice value='dark'/>
+      </choices>
+      <default>'system'</default>
+      <summary>Colour variant</summary>
+      <description>Whether the whole application follows the system, or is always light or always dark.</description>
+    </key>
+    <key name="editor-theme" type="s">
+      <choices>
+        <choice value='Breeze'/>
+        <choice value='Atom One'/>
+        <choice value='Catppuccin'/>
+        <choice value='GitHub'/>
+        <choice value='Solarized'/>
+      </choices>
+      <default>'Breeze'</default>
+      <summary>Editor theme family</summary>
+      <description>Colour theme family of the editor and preview; each has a light and a dark variant.</description>
+    </key>
+    <key name="code-font" type="s">
+      <default>''</default>
+      <summary>Code font</summary>
+      <description>Font family of the editor. Empty means the system monospace font.</description>
+    </key>
+    <key name="preview-font" type="s">
+      <default>''</default>
+      <summary>Preview font</summary>
+      <description>Font family of the preview. Empty means the system interface font.</description>
+    </key>
+    <key name="code-font-size" type="i">
+      <range min="0" max="40"/>
+      <default>0</default>
+      <summary>Code font size</summary>
+      <description>Editor font size in points. 0 means the system default size.</description>
+    </key>
+    <key name="preview-font-size" type="i">
+      <range min="0" max="40"/>
+      <default>0</default>
+      <summary>Preview font size</summary>
+      <description>Preview font size in points. 0 means the system default size.</description>
+    </key>
+    <key name="wrap-text" type="b">
+      <default>false</default>
+      <summary>Wrap text</summary>
+      <description>Wrap long lines in the editor.</description>
+    </key>
+    <key name="wrap-column" type="i">
+      <range min="60" max="200"/>
+      <default>100</default>
+      <summary>Wrap column</summary>
+      <description>Wrap after this many characters, or at the window edge if that comes first.</description>
+    </key>
+    <key name="sync-scroll" type="b">
+      <default>true</default>
+      <summary>Sync scrolling</summary>
+      <description>Editor and preview scroll together.</description>
+    </key>
+    <key name="preview-width" type="i">
+      <range min="20" max="100"/>
+      <default>100</default>
+      <summary>Preview text width</summary>
+      <description>Maximum width of the preview text as a percentage of the window width.</description>
+    </key>
+    <key name="show-minimap" type="b">
+      <default>true</default>
+      <summary>Show minimap</summary>
+      <description>Show the code map beside the editor.</description>
+    </key>
+    <key name="show-status-bar" type="b">
+      <default>true</default>
+      <summary>Show status bar</summary>
+      <description>Show path, counts, encoding and line ending.</description>
+    </key>
+    <key name="watch-files" type="b">
+      <default>true</default>
+      <summary>Monitor file changes</summary>
+      <description>Reload when the file changes on disk.</description>
+    </key>
+    <key name="convert-encoding" type="b">
+      <default>true</default>
+      <summary>Convert encoding</summary>
+      <description>Save as UTF-8 instead of the file's own encoding.</description>
+    </key>
+    <key name="convert-line-endings" type="b">
+      <default>true</default>
+      <summary>Convert line endings</summary>
+      <description>Save with LF instead of the file's own line endings.</description>
+    </key>
+    <key name="view-mode" type="i">
+      <range min="0" max="2"/>
+      <default>2</default>
+      <summary>View mode</summary>
+      <description>Which panes are shown: 0 editor only, 1 preview only, 2 both.</description>
+    </key>
+    <key name="window-width" type="i">
+      <range min="300" max="16000"/>
+      <default>1080</default>
+      <summary>Window width</summary>
+      <description>Width of the main window in pixels.</description>
+    </key>
+    <key name="window-height" type="i">
+      <range min="200" max="16000"/>
+      <default>630</default>
+      <summary>Window height</summary>
+      <description>Height of the main window in pixels.</description>
+    </key>
+    <key name="window-maximized" type="b">
+      <default>false</default>
+      <summary>Window maximized</summary>
+      <description>Whether the main window is maximized.</description>
+    </key>
+  </schema>
+</schemalist>

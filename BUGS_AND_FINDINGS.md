@@ -99,7 +99,33 @@ PNGs. Without a window manager, `xdotool key` shortcuts did not open dialogs; cl
 - `QCoreApplication::quit()` (window closed) also ends the shim's nested event loop; the shim then kills the job and
   reports "interrupted" instead of treating the empty result as success.
 
+## GNOME frontend (GTK 4 / libadwaita)
+
+- Headless runs: WebKitGTK aborts at the first WebView in a container without `WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1`
+  (bwrap); extra docker capabilities do not help. Use it for tests only. The same applies to a Flatpak run inside Docker.
+  Software GL prints harmless `MESA-EGL ... DRI3` warnings under Xvfb.
+- `sourceview5::Map` must get `set_font_desc` with a 1pt family, or it reports a 600 px minimum width and starves the
+  preview. A `gtk::Paned` starts at its start child's natural width: call `set_position`.
+- `sourceview5::Map`'s own viewport slider is allocated at the right place and size but not drawn (checked with the stock
+  Adwaita scheme too, GTK 4.22 / GtkSourceView 5.20, Xvfb), so the editor marks the visible region with a translucent box in a
+  `gtk::Overlay` over the map, positioned from the same proportions (`editor.rs`, `viewport_rect`).
+- `view.line_at_y(visible_rect().y())` gives the top line (`iter_at_location(0, y)` is `None` in the left margin).
+  `approximate_char_width` is stale until the next idle after a font change; the wrap column is recomputed then.
+  The wrap-at-column margin needs about 1.5 characters of slack (GTK wraps earlier than the margins imply).
+- GSettings: `Settings::new` aborts the process when the schema is missing (look it up in a `SettingsSchemaSource` first);
+  an out-of-range `set_*` returns an error with a misleading "readonly" text and prints a warning (validate first).
+- GtkSourceView's Markdown language only colours headings, list markers, code, links and the quote marker. We ship our own
+  `markite-markdown.lang` (derived from it) for list text, quote text and tables; custom style ids come from the generated
+  schemes. `LanguageManager` has no `append_search_path` (use `set_search_path`); schemes live in gresources, not on disk.
+- The Flatpak runtime ships libadwaita, GtkSourceView and WebKitGTK; fonts are installed under `/app/share/fonts`
+  (fontconfig includes it). `flatpak-builder` works in a `--privileged` container; the runtimes (about 3 GB) live in the
+  named volume `markite-flatpak`.
+
 ## Known limitations
+
+- GNOME: remote (`sftp://`) open/save/monitoring through GVfs, drag-and-drop opening, and WebKit's own sandbox inside
+  Flatpak were not exercised on a real desktop session (no server, file manager or host portal in the build container).
+  Only one document per window; the minimap is GtkSourceView's native one (no per-line colour bars).
 
 - With Wrap Text on, the minimap box and scroll sync drift on wrapped lines.
 - Closing the app does not warn about unsaved changes.

@@ -1,0 +1,262 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Markdown (Markite): GtkSourceView 5 language definition.
+
+  Derived from GtkSourceView's markdown.lang
+    Copyright (C) 2011 Jean-Philippe Fleury <contact@jpfleury.net>
+  and distributed under the same terms, the GNU Lesser General Public License
+  version 2.1 or (at your option) any later version: <https://www.gnu.org/licenses/lgpl-2.1.html>.
+
+  Changes: separate styles for list item text, quote text, tables and code (fenced and indented),
+  multi-line list items and quotes (they end at a blank line, like a paragraph does), fenced code
+  with ~~~ and longer fences, nested lists and "1)" lists, no embedded HTML. The style ids are the
+  ones the generated Markite style schemes (gnome/data/styles) colour; each maps to a default
+  style so other schemes still show something sensible.
+-->
+<language id="markite-markdown" name="Markdown (Markite)" version="2.0" _section="Markup">
+  <metadata>
+    <property name="mimetypes">text/markdown;text/x-markdown</property>
+    <property name="globs">*.md;*.markdown</property>
+    <property name="block-comment-start">&lt;!--</property>
+    <property name="block-comment-end">--&gt;</property>
+    <property name="suggested-suffix">.md</property>
+  </metadata>
+
+  <styles>
+    <style id="header" name="Header" map-to="def:heading"/>
+    <style id="horizontal-rule" name="Horizontal Rule" map-to="def:thematic-break"/>
+    <style id="list-marker" name="List Marker" map-to="def:list-marker"/>
+    <style id="list-text" name="List Text" map-to="def:identifier"/>
+    <style id="blockquote-marker" name="Blockquote Marker" map-to="def:shebang"/>
+    <style id="quote-text" name="Quote Text" map-to="def:comment"/>
+    <style id="code-span" name="Code Span" map-to="def:inline-code"/>
+    <style id="code" name="Code" map-to="def:preformatted-section"/>
+    <style id="fence" name="Code Fence" map-to="def:preformatted-section"/>
+    <style id="table" name="Table" map-to="def:preprocessor"/>
+    <style id="emphasis" name="Emphasis" map-to="def:emphasis"/>
+    <style id="strong-emphasis" name="Strong Emphasis" map-to="def:strong-emphasis"/>
+    <style id="bold-italic" name="Strong and Emphasis" map-to="def:strong-emphasis"/>
+    <style id="link-marker" name="Link Brackets" map-to="def:comment"/>
+    <style id="link-text" name="Link Text" map-to="def:link-text"/>
+    <style id="url" name="URL" map-to="def:link-destination"/>
+    <style id="autolink" name="Automatic Link" map-to="def:net-address"/>
+    <style id="label" name="Label" map-to="def:preprocessor"/>
+    <style id="image" name="Image" map-to="def:constant"/>
+    <style id="image-url" name="Image URL" map-to="def:link-destination"/>
+    <style id="backslash-escape" name="Backslash Escape" map-to="def:special-char"/>
+    <style id="line-break" name="Line Break" map-to="def:note"/>
+    <style id="comment" name="Comment" map-to="def:comment"/>
+  </styles>
+
+  <definitions>
+    <!-- Headings: "# Title", "## Title ##". A setext underline can only colour the underline itself,
+         because a regex cannot look at the previous line. -->
+    <context id="atx-header" style-ref="header">
+      <match>^[ ]{0,3}#{1,6}([ \t].*)?$</match>
+    </context>
+    <context id="setext-header" style-ref="header">
+      <match>^[ ]{0,3}(-{1,2}|=+)[ \t]*$</match>
+    </context>
+
+    <context id="horizontal-rule" style-ref="horizontal-rule">
+      <match extended="true">
+        ^[ ]{0,3}
+        (
+          (-[ ]{0,2}){3,} |
+          (_[ ]{0,2}){3,} |
+          (\*[ ]{0,2}){3,}
+        )
+        [ \t]*$
+      </match>
+    </context>
+
+    <context id="html-comment" style-ref="comment" class="no-spell-check">
+      <start>&lt;!--</start>
+      <end>--&gt;</end>
+    </context>
+
+    <!-- Fenced code: the closing fence uses the opening character and is at least as long. -->
+    <context id="fenced-code" style-ref="code" class="no-spell-check">
+      <start>^[ ]{0,3}(?P&lt;fence&gt;`{3,}(?=[^`]*$)|~{3,}).*$</start>
+      <end>^[ ]{0,3}\%{fence@start}[`~]*[ \t]*$</end>
+      <include>
+        <context sub-pattern="0" where="start" style-ref="fence"/>
+        <context sub-pattern="0" where="end" style-ref="fence"/>
+      </include>
+    </context>
+
+    <!-- List items run to the next blank line (continuation lines keep the item colour), or until a
+         heading, quote or fence starts. Inner items (nested or following) get their marker coloured. -->
+    <context id="list-marker" style-ref="list-marker">
+      <match>^[ \t]*([*+-]|[0-9]+[.)])[ \t]+</match>
+    </context>
+    <context id="list" style-ref="list-text">
+      <start>^[ \t]*([*+-]|[0-9]+[.)])[ \t]+</start>
+      <end>^(?=[ \t]*$|#{1,6}([ \t]|$)|[ ]{0,3}&gt;|[ ]{0,3}(`{3,}|~{3,}))</end>
+      <include>
+        <context sub-pattern="0" where="start" style-ref="list-marker"/>
+        <context ref="list-marker"/>
+        <context ref="inline"/>
+      </include>
+    </context>
+
+    <!-- Indented code. Known approximation: it cannot tell a paragraph continuation from code. -->
+    <context id="indented-code" style-ref="code" class="no-spell-check">
+      <match>^( {4,}|\t)[^ \t].*$</match>
+    </context>
+
+    <context id="blockquote-marker" style-ref="blockquote-marker">
+      <match>^[ ]{0,3}&gt;( {0,4}&gt;)*</match>
+    </context>
+    <context id="blockquote" style-ref="quote-text">
+      <start>^[ ]{0,3}&gt;( {0,4}&gt;)*</start>
+      <end>^(?=[ \t]*$|#{1,6}([ \t]|$)|[ ]{0,3}(`{3,}|~{3,}))</end>
+      <include>
+        <context sub-pattern="0" where="start" style-ref="blockquote-marker"/>
+        <context ref="blockquote-marker"/>
+        <context ref="inline"/>
+      </include>
+    </context>
+
+    <!-- Table rows: only the pipes and the separator cells (three dashes, optional colons) are coloured, like KDE. -->
+    <context id="table" end-at-line-end="true">
+      <start>^[ ]{0,3}(?=\|)</start>
+      <include>
+        <context style-ref="table"><match>\|([ \t]*:?-{3,}:?)?</match></context>
+        <context ref="inline"/>
+      </include>
+    </context>
+
+    <!-- Inline elements -->
+    <context id="backslash-escape" style-ref="backslash-escape">
+      <match>\\[\\`*_{}\[\]()#+.!&gt;&lt;|~-]</match>
+    </context>
+    <context id="1-backtick-code-span" class="no-spell-check" style-ref="code-span">
+      <match>(?&lt;!`)`[^`]+(`{2,}[^`]+)*`(?!`)</match>
+    </context>
+    <context id="2-backticks-code-span" class="no-spell-check" style-ref="code-span">
+      <match>(?&lt;!`)``[^`]+((`|`{3,})[^`]+)*``(?!`)</match>
+    </context>
+    <context id="automatic-link" class="no-spell-check" style-ref="autolink">
+      <match case-sensitive="false" extended="true">
+        &lt;
+          (((mailto:)?[a-z0-9.-]+\@[-a-z0-9]+(\.[-a-z0-9]+)*\.[a-z]+) |
+          ((https?|ftp):[^'"&gt;\s]+))
+        &gt;
+      </match>
+    </context>
+    <context id="implicit-link" class="no-spell-check" style-ref="autolink">
+      <match>https?://[^\s&lt;&gt;()\[\]"']+</match>
+    </context>
+    <context id="inline-image">
+      <match>(!\[)(.*?)(\]\()([^)]*)(\))</match>
+      <include>
+        <context sub-pattern="1" style-ref="image"/>
+        <context sub-pattern="2" style-ref="image"/>
+        <context sub-pattern="3" style-ref="image"/>
+        <context sub-pattern="4" class="no-spell-check" style-ref="image-url"/>
+        <context sub-pattern="5" style-ref="image"/>
+      </include>
+    </context>
+    <context id="reference-image">
+      <match>(!\[)(.*?)(\])[ ]?(\[)(.*?)(\])</match>
+      <include>
+        <context sub-pattern="1" style-ref="image"/>
+        <context sub-pattern="2" style-ref="image"/>
+        <context sub-pattern="3" style-ref="image"/>
+        <context sub-pattern="4" style-ref="image"/>
+        <context sub-pattern="5" class="no-spell-check" style-ref="label"/>
+        <context sub-pattern="6" style-ref="image"/>
+      </include>
+    </context>
+    <context id="inline-link">
+      <match>(\[)(.*?)(\]\()([^)]*)(\))</match>
+      <include>
+        <context sub-pattern="1" style-ref="link-marker"/>
+        <context sub-pattern="2" style-ref="link-text"/>
+        <context sub-pattern="3" style-ref="link-marker"/>
+        <context sub-pattern="4" class="no-spell-check" style-ref="url"/>
+        <context sub-pattern="5" style-ref="link-marker"/>
+      </include>
+    </context>
+    <!-- [label]: http://example.com/ "Title" -->
+    <context id="link-definition">
+      <match>^[ ]{0,3}(\[)(.+?)(\]:)[ \t]*(&lt;[^ \t]+?&gt;|[^ \t]+)</match>
+      <include>
+        <context sub-pattern="1" style-ref="link-marker"/>
+        <context sub-pattern="2" class="no-spell-check" style-ref="label"/>
+        <context sub-pattern="3" style-ref="link-marker"/>
+        <context sub-pattern="4" class="no-spell-check" style-ref="url"/>
+      </include>
+    </context>
+    <context id="reference-link">
+      <match>(\[)(.*?)(\])(?:[ \t]?(\[)(.*?)(\]))?(?![:(])</match>
+      <include>
+        <context sub-pattern="1" style-ref="link-marker"/>
+        <context sub-pattern="2" style-ref="link-text"/>
+        <context sub-pattern="3" style-ref="link-marker"/>
+        <context sub-pattern="4" style-ref="link-marker"/>
+        <context sub-pattern="5" class="no-spell-check" style-ref="label"/>
+        <context sub-pattern="6" style-ref="link-marker"/>
+      </include>
+    </context>
+
+    <!-- Emphasis: an underscore inside a word (snake_case) is not an opener. -->
+    <context id="bold-italic" style-ref="bold-italic">
+      <match>(?&lt;![*\w])\*\*\*[^* \t].*?(?&lt;!\\|\*| |\t)\*\*\*(?!\*)</match>
+    </context>
+    <context id="asterisks-strong-emphasis" style-ref="strong-emphasis">
+      <match>\*\*[^\* \t].*?(?&lt;!\\|\*| |\t)\*\*</match>
+    </context>
+    <context id="underscores-strong-emphasis" style-ref="strong-emphasis">
+      <match>(?&lt;![_\w])__[^_ \t].*?(?&lt;!\\|_| |\t)__(?![_\w])</match>
+    </context>
+    <context id="asterisks-emphasis" style-ref="emphasis">
+      <match>(?&lt;!\*)\*[^\* \t].*?(?&lt;!\\|\*| |\t)\*(?!\*)</match>
+    </context>
+    <context id="underscores-emphasis" style-ref="emphasis">
+      <match>(?&lt;![_\w])_[^_ \t].*?(?&lt;!\\|_| |\t)_(?![_\w])</match>
+    </context>
+    <context id="line-break">
+      <match>(?&lt;=[^ \t])([ \t]{2,})$</match>
+      <include><context sub-pattern="1" style-ref="line-break"/></include>
+    </context>
+
+    <context id="inline">
+      <include>
+        <context ref="backslash-escape"/>
+        <context ref="html-comment"/>
+        <context ref="1-backtick-code-span"/>
+        <context ref="2-backticks-code-span"/>
+        <context ref="automatic-link"/>
+        <context ref="inline-image"/>
+        <context ref="reference-image"/>
+        <context ref="inline-link"/>
+        <context ref="link-definition"/>
+        <context ref="reference-link"/>
+        <context ref="implicit-link"/>
+        <context ref="bold-italic"/>
+        <context ref="asterisks-strong-emphasis"/>
+        <context ref="underscores-strong-emphasis"/>
+        <context ref="asterisks-emphasis"/>
+        <context ref="underscores-emphasis"/>
+        <context ref="line-break"/>
+      </include>
+    </context>
+
+    <context id="markite-markdown">
+      <include>
+        <context ref="html-comment"/>
+        <context ref="fenced-code"/>
+        <context ref="atx-header"/>
+        <context ref="horizontal-rule"/>
+        <context ref="setext-header"/>
+        <context ref="list"/>
+        <context ref="indented-code"/>
+        <context ref="blockquote"/>
+        <context ref="table"/>
+        <context ref="inline"/>
+      </include>
+    </context>
+  </definitions>
+</language>

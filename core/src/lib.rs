@@ -11,6 +11,7 @@ pub mod encoding;
 mod highlight;
 pub mod location;
 pub mod minimap;
+pub mod options;
 mod render;
 mod syntax_themes;
 #[doc(hidden)]

@@ -33,6 +33,14 @@ impl Default for Document {
     }
 }
 
+/// The encoded bytes of a save in progress (see `Document::prepare_save`).
+#[derive(Debug)]
+pub struct SavePlan {
+    pub bytes: Vec<u8>,
+    text: String,
+    format: Format,
+}
+
 /// What `Document::external_change` did with the content found on disk.
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum ExternalChange {
@@ -168,6 +176,33 @@ impl Document {
         );
     }
 
+    /// Encode the buffer for saving (honouring the convert options) without touching any state, for frontends
+    /// whose write is asynchronous: write `bytes`, then call `finish_save`. Edits made while the write is in
+    /// flight stay dirty, because the plan remembers the text it encoded.
+    pub fn prepare_save(&self) -> io::Result<SavePlan> {
+        let (bytes, format) = encoding::encode(
+            &self.text,
+            self.format,
+            self.convert_encoding,
+            self.convert_eol,
+        )?;
+        Ok(SavePlan {
+            bytes,
+            text: self.text.clone(),
+            format,
+        })
+    }
+
+    /// Record that `plan` was written to `path`: the path becomes the document's path and dirty tracking resets
+    /// to the text the plan encoded.
+    pub fn finish_save(&mut self, path: impl AsRef<Path>, plan: SavePlan) {
+        self.path = Some(path.as_ref().to_path_buf());
+        self.format = plan.format;
+        self.saved_text = plan.text;
+        self.conflict_seen = None;
+        crate::trace!("finish_save: path updated, saved text recorded");
+    }
+
     /// Write the buffer to `path` through a caller-supplied writer (frontend remote I/O). On success the
     /// path becomes the document's path and dirty tracking resets; on failure nothing changes.
     pub fn save_as_with(
@@ -181,18 +216,9 @@ impl Document {
             self.text.len(),
             crate::location::redact(&path.to_string_lossy())
         );
-        let (bytes, format) = encoding::encode(
-            &self.text,
-            self.format,
-            self.convert_encoding,
-            self.convert_eol,
-        )?;
-        write(path, &bytes)?;
-        self.format = format;
-        self.path = Some(path.to_path_buf());
-        self.saved_text = self.text.clone();
-        self.conflict_seen = None;
-        crate::trace!("save_as_with: ok, path updated (clean)");
+        let plan = self.prepare_save()?;
+        write(path, &plan.bytes)?;
+        self.finish_save(path, plan);
         Ok(())
     }
 

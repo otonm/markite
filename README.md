@@ -92,18 +92,37 @@ Without installing anything on the host, the Docker scripts build everything in 
 ```sh
 ./docker/build.sh                # fmt + clippy, core tests, KDE build, QML unit tests, smoke test -> builds/debug/
 ./docker/appimage.sh             # full AppImage -> builds/debug/markite-x86_64.AppImage
-./docker/build_release.sh 1.0.7  # sets the version, builds the lean release AppImage -> builds/release/
+./docker/build_release.sh 1.1.0  # sets the version, builds the lean release AppImage -> builds/release/
 ```
 
 The binary links Qt's private API, so it only runs against the Qt minor version it was built with. The
 AppImage bundles that Qt; for a native build this means building on the machine (or distro release) that
 will run it.
 
+## GNOME edition
+
+Markite also ships as a GTK 4 / libadwaita app for GNOME (`gnome/`), distributed as a Flatpak. It shares the whole
+Markdown core with the KDE version and has the same features, in GNOME's idiom:
+
+- Preferences are an in-window `AdwPreferencesDialog` (searchable), About is `AdwAboutDialog`; the *Variant* option
+  switches the whole app between light and dark (GNOME's colour-scheme setting), not only the editor and preview.
+- The editor is GtkSourceView with a Markdown language definition that colours list text, quotes and tables like the
+  KDE editor; the minimap is GtkSourceView's native map (a miniature of the editor text); the preview is a hardened
+  WebKitGTK view (no scripts in the page, strict content security policy, links open in the browser).
+- Files open in a new window unless the current one is unused; unsaved changes are confirmed on close; files can be
+  dropped onto the window; settings live in GSettings (`dconf`).
+- Remote files (`sftp://`, ...) go through GVfs/GIO, with the usual GNOME password and host-key prompts.
+
+Build and package (everything runs in Docker): `./docker/build_gnome.sh` (checks and a headless smoke test),
+`./docker/build_gnome_flatpak.sh` (Flatpak bundle in `builds/gnome/`), `./docker/build_gnome_release.sh <version>`.
+The Flatpak permissions and bundled fonts are explained in `gnome/flatpak/README.md`.
+
 ## Project layout
 
 - `core/`: the Markdown logic in plain Rust with no GUI dependency (document, block splitting and code
   highlighting for the preview, minimap data, counts, remote-path mapping, encoding and line-ending detection), with integration tests in `core/tests/`.
 - `kde/`: the Qt/Kirigami frontend: a thin cxx-qt bridge and the QML UI, with QML unit tests in `kde/tests/qml/`.
+- `gnome/`: the GTK 4 / libadwaita frontend (its own cargo workspace, so the two frontends never share a lockfile or target directory): editor, preview, preferences, files, GSettings schema, language definition and style schemes, Flatpak manifest.
 - `docker/`: build, test and release scripts; `builds/` (gitignored) holds their output.
 
 ## Status

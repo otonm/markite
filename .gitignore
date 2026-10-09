@@ -7,3 +7,5 @@ builds/
 .mockups/
 Screenshot*.png
 *.part
+gnome/flatpak/cargo-sources.json
+gnome/data/schemas/
