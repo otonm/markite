@@ -14,3 +14,4 @@ gnome/data/schemas/
 macos/.build/
 macos/dist/
 macos/Sources/MarkiteBridge/
+macos/Sources/markite_macosFFI/include/
