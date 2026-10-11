@@ -1,0 +1,27 @@
+[package]
+name = "markite-macos"
+version = "1.1.0"   # set with docker/set_version.sh
+edition = "2021"
+license = "MIT"
+description = "Markite, Swift bindings over markite-core (UniFFI) for the macOS frontend"
+
+# Its own workspace: the other frontends never share a lockfile or a target directory with this one.
+[workspace]
+
+[lib]
+# staticlib is linked into the Swift app through an XCFramework (scripts/build_core.sh).
+crate-type = ["staticlib", "lib"]
+
+[[bin]]
+name = "uniffi-bindgen-swift"
+path = "src/bin/uniffi-bindgen-swift.rs"
+
+[dependencies]
+markite-core = { path = "../core" }
+# Same parser and version as core: the editor highlighter reads its source positions.
+comrak = { version = "0.54", default-features = false }
+uniffi = { version = "0.29", features = ["cli"] }
+
+[features]
+# Debug tracing to stderr (forwards to the core's trace feature).
+trace = ["markite-core/trace"]

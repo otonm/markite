@@ -1,7 +1,7 @@
 #!/bin/sh
 # Sets the project version everywhere it lives: ./docker/set_version.sh 1.0.3
 # (workspace Cargo.toml, Cargo.lock, CMakeLists.txt, metainfo release entry, and the same for the GNOME frontend:
-# gnome/Cargo.toml, gnome/Cargo.lock, gnome/data metainfo). Idempotent.
+# gnome/Cargo.toml, gnome/Cargo.lock, gnome/data metainfo; macos/Cargo.toml and macos/Cargo.lock). Idempotent.
 # Add new places that carry the version here.
 set -eu
 cd "$(dirname "$0")/.."
@@ -22,4 +22,10 @@ for p in markite-core markite-gnome; do
 done
 M=gnome/data/io.github.otonm.markite.metainfo.xml
 grep -q "<release version=\"$V\"" "$M" || sed -i 's#<releases>#<releases><release version="'"$V"'" date="'"$(date +%F)"'"/>#' "$M"
+sed -i 's/^version = ".*"   # set with/version = "'"$V"'"   # set with/' macos/Cargo.toml
+if [ -f macos/Cargo.lock ]; then
+  for p in markite-core markite-macos; do
+    sed -i '/^name = "'"$p"'"$/{n;s/^version = ".*"/version = "'"$V"'"/}' macos/Cargo.lock
+  done
+fi
 echo "version set to $V"

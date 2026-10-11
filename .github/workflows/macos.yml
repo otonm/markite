@@ -1,0 +1,47 @@
+name: macOS
+
+on:
+  push:
+    tags: ['v*']
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: macos-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write   # the release step uploads the DMG
+
+jobs:
+  build:
+    # Apple-silicon runner: the only place Swift/AppKit code can be compiled.
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            . -> target
+            macos -> target
+      - name: Install icon tools
+        run: brew install librsvg
+      - name: Core tests
+        run: cargo test -p markite-core
+      - name: Build core + Swift bindings
+        run: macos/scripts/build_core.sh
+      - name: Build, bundle and package
+        run: macos/scripts/package.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: markite-macos-arm64
+          path: macos/dist/*.dmg
+          if-no-files-found: error
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || gh release create "$GITHUB_REF_NAME" --generate-notes
+          gh release upload "$GITHUB_REF_NAME" macos/dist/*.dmg --clobber

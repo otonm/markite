@@ -144,3 +144,6 @@ PNGs. Without a window manager, `xdotool key` shortcuts did not open dialogs; cl
   event loop for each read, and changes are only noticed by content, not mtime. Only the open document is watched.
 - Minimap `indent` counts bytes while `len` counts chars, so a non-ASCII leading space overstates the indent.
 - The KIO include paths in `kde/build.rs` assume the Fedora layout.
+- macOS editor highlighting (`macos/src/highlight.rs`) re-parses the whole text with comrak and skips files over
+  4 MiB; it is deliberately outside core because only the macOS frontend uses it. Backslash escapes are found by
+  scanning text nodes, so they can be missed where comrak reports an inexact text position.
