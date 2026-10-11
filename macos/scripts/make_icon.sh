@@ -10,4 +10,4 @@ for s in 16 32 128 256 512; do
   rsvg-convert -w "$s" -h "$s" io.github.otonm.markite.svg -o "$SET/icon_${s}x${s}.png"
   rsvg-convert -w "$((s * 2))" -h "$((s * 2))" io.github.otonm.markite.svg -o "$SET/icon_${s}x${s}@2x.png"
 done
-iconutil -c icns "$SET" -o "$OUT"
+iconutil -c icns "$SET" -o "$OUT" || { file "$SET"/*; exit 1; }
