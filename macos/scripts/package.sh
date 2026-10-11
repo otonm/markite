@@ -12,7 +12,7 @@ BIN="$(swift build -c release --arch arm64 --show-bin-path)/Markite"
 APP=dist/Markite.app
 rm -rf dist && mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" dist/dmg
 cp "$BIN" "$APP/Contents/MacOS/Markite"
-macos/scripts/make_icon.sh "$APP/Contents/Resources/Markite.icns"
+scripts/make_icon.sh "$APP/Contents/Resources/Markite.icns"
 sed "s/@VERSION@/$VERSION/g" Resources/Info.plist.in >"$APP/Contents/Info.plist"
 plutil -lint "$APP/Contents/Info.plist"
 # Apple silicon refuses unsigned code; ad-hoc is enough to run locally and on machines you trust.
